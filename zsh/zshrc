@@ -24,6 +24,6 @@ eval "$(fzf --zsh)"
 #eval "$(zoxide init --cmd cd zsh)"
 
 # Aliases
-source $ZDOTDIR/aliases
+source "$ZDOTDIR/aliases"
 
 eval "$(starship init zsh)"
