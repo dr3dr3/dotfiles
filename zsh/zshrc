@@ -9,7 +9,7 @@ bindkey '^[w' kill-region
 # History
 HISTSIZE=5000
 SAVEHIST=$HISTSIZE
-HISTFILE="$ZDOTDIR/zsh/.zhistory"
+HISTFILE="$ZDOTDIR/.zhistory"
 HISTDUP=erase
 setopt appendhistory
 setopt sharehistory
@@ -24,6 +24,6 @@ eval "$(fzf --zsh)"
 #eval "$(zoxide init --cmd cd zsh)"
 
 # Aliases
-source "$ZDOTDIR/zsh/aliases"
+source "$ZDOTDIR/.config/aliases"
 
 eval "$(starship init zsh)"
