@@ -9,13 +9,13 @@ RUN git config --global user.name "Andre Dreyer" && git config --global user.ema
 
 # Install Starship and setup ZSH
 RUN curl -sS https://starship.rs/install.sh | sh -s -- -y
-RUN wget -O ~/.config/fish/config.fish https://raw.githubusercontent.com/dr3dr3/dotfiles/refs/heads/main/fish/config.fish
-RUN wget -O ~/.config/fish/conf.d/abbrs.fish https://raw.githubusercontent.com/dr3dr3/dotfiles/refs/heads/main/fish/abbrs.fish
-RUN wget -O ~/.config/fish/starship.toml https://raw.githubusercontent.com/dr3dr3/dotfiles/refs/heads/main/zsh/.config/starship.toml
-ENV STARSHIP_CONFIG=~/.config/fish/starship.toml
-RUN mkdir -p ~/.config/fish/starship/cache
-ENV STARSHIP_CACHE=~/.config/fish/starship/cache
-ENV FISH_CONFIG=~/.config/fish/config.fish
+RUN mkdir -p ~/.config/fish
+RUN mkdir -p ~/.config/fish && wget -O ~/.config/fish/config.fish https://raw.githubusercontent.com/dr3dr3/dotfiles/refs/heads/main/fish/config.fish
+RUN mkdir -p ~/.config/fish/conf.d wget -O ~/.config/fish/conf.d/abbrs.fish https://raw.githubusercontent.com/dr3dr3/dotfiles/refs/heads/main/fish/abbrs.fish
+RUN mkdir -p ~/.config/starship wget -O ~/.config/fish/starship.toml https://raw.githubusercontent.com/dr3dr3/dotfiles/refs/heads/main/zsh/.config/starship.toml
+RUN mkdir -p ~/.config/starship/cache
+ENV STARSHIP_CONFIG=~/.config/starship/starship.toml
+ENV STARSHIP_CACHE=~/.config/starship/cache
 ENV SHELL=/usr/bin/fish
 
 ENTRYPOINT ["/usr/bin/fish"]
