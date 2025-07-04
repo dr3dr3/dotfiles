@@ -9,13 +9,38 @@ $cmd_duration\
 $line_break\
 $character"""
 
+# Set the color palette
+palette = "wombat"
+
+[palettes.wombat]
+black = '#000000'
+blue = '#5da9f6'
+cyan = '#82fff7'
+green = '#b1e969'
+purple = '#e86aff'
+red = '#ff615a'
+white = '#dedacf'
+yellow = '#ebd99c'
+
 [directory]
 style = "blue"
+truncation_length = 0
+truncate_to_repo = false
+truncation_symbol = ""
+
+[username]
+format = "[$user]($style) "
 
 [character]
-success_symbol = "[❯](purple)"
-error_symbol = "[❯](red)"
-vimcmd_symbol = "[❮](green)"
+format = "$symbol "
+success_symbol = "[❱](purple)"
+error_symbol = "[❱](red)"
+vimcmd_symbol = "[❰](cyan)"
+
+[shell]
+fish_indicator = '🐠'
+style = 'cyan bold'
+disabled = false
 
 [git_branch]
 format = "[$branch]($style)"
