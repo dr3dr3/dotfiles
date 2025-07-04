@@ -1,0 +1,38 @@
+{
+    "name": "DR3DR3-DOTFILES",
+
+    "build": {
+        "dockerfile": "Dockerfile"
+    },
+
+    "workspaceFolder": "/workspace/admin",
+
+    "postCreateCommand": "echo 'Ready'",
+
+    "postStartCommand": "echo 'Started'",
+
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "github.vscode-pull-request-github",
+                "github.copilot",
+                "redhat.vscode-yaml",
+                "ms-kubernetes-tools.vscode-kubernetes-tools",
+                "1Password.op-vscode"
+            ],
+            "settings": {
+                "terminal.integrated.defaultProfile.linux": "zsh", 
+                "terminal.integrated.profiles.linux": {
+                    "zsh": {
+                        "path": "/bin/zsh"
+                    }
+                }
+            }
+        }
+    },
+
+    "forwardPorts": [
+        8080
+    ]
+
+}
