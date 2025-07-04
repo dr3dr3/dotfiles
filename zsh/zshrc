@@ -1,5 +1,20 @@
 # Zsh configuration file
 
+autoload -Uz compinit
+compinit
+
+# Starship
+eval "$(starship init zsh)"
+
+# The Fuck
+eval $(thefuck --alias)
+
+# Zoxide
+eval "$(zoxide init --cmd cd zsh)"
+
+# FZF
+eval "$(fzf --zsh)"
+
 # Keybindings
 bindkey -e
 bindkey '^p' history-search-backward
@@ -19,11 +34,7 @@ setopt hist_save_no_dups
 setopt hist_ignore_dups
 setopt hist_find_no_dups
 
-# Shell integrations
-eval "$(fzf --zsh)"
-#eval "$(zoxide init --cmd cd zsh)"
-
-# Aliases
+# Aliases for Git
 alias gs='git status'
 alias ga='git add'
 alias gp='git push'
@@ -45,5 +56,20 @@ alias gl='git log --oneline'
 alias gr='git remote'
 alias grs='git remote show'
 
-# Starship.rs
-eval "$(starship init zsh)"
+# Aliases for LS
+alias ls='eza --long --all --no-permissions --no-filesize --no-user --no-time --git'
+alias l='ls -l'
+alias ll='ls -lahF'
+alias lls='ls -lahFtr'
+alias la='ls -A'
+alias lc='ls -CF'
+
+# Completion styling
+zstyle ':completion:*' matcher-list 'm:{a-z}={A-Za-z}'
+zstyle ':completion:*' list-colors "${(s.:.)LS_COLORS}"
+zstyle ':completion:*' menu no
+zstyle ':fzf-tab:complete:cd:*' fzf-preview 'ls --color $realpath'
+zstyle ':fzf-tab:complete:__zoxide_z:*' fzf-preview 'ls --color $realpath'
+
+# Load ZSHRC
+source ~/.zshrc
