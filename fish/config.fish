@@ -9,7 +9,7 @@ abbr -a -- ts 'date +%Y-%m-%dT%H:%M:%SZ'
 abbr -a -- yyyymmdd 'date +%Y%m%d'
 
 # git
-abbr -a -- ga 'git add .'
+abbr -a -- ga 'git add . '
 abbr -a -- gc 'git commit -am '
 abbr -a -- gco 'git checkout'
 abbr -a -- gcob 'git checkout -b '
