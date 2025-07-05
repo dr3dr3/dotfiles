@@ -5,26 +5,20 @@
         "dockerfile": "Dockerfile"
     },
 
-    "workspaceFolder": "/workspace/admin",
-
-    "postCreateCommand": "echo 'Ready'",
-
-    "postStartCommand": "echo 'Started'",
+    "workspaceFolder": "/workspace/dotfiles",
 
     "customizations": {
         "vscode": {
             "extensions": [
                 "github.vscode-pull-request-github",
                 "github.copilot",
-                "redhat.vscode-yaml",
-                "ms-kubernetes-tools.vscode-kubernetes-tools",
-                "1Password.op-vscode"
+                "ms-azuretools.vscode-docker"
             ],
             "settings": {
                 "terminal.integrated.defaultProfile.linux": "fish", 
                 "terminal.integrated.profiles.linux": {
                     "fish": {
-                        "path": "/usr/bin/zsh"
+                        "path": "/usr/bin/fish"
                     }
                 }
             }

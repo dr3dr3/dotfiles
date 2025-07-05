@@ -24,9 +24,9 @@ yellow = '#ebd99c'
 
 [directory]
 style = "blue"
-truncation_length = 0
+truncation_length = 8
 truncate_to_repo = false
-truncation_symbol = ""
+truncation_symbol = "…/"
 
 [username]
 format = "[$user]($style) "
@@ -49,13 +49,17 @@ style = "bright-black"
 [git_status]
 format = "[[(*$conflicted$untracked$modified$staged$renamed$deleted)](218) ($ahead_behind$stashed)]($style)"
 style = "cyan"
-conflicted = "​"
-untracked = "​"
-modified = "​"
-staged = "​"
-renamed = "​"
-deleted = "​"
-stashed = "≡"
+conflicted = '🏳'
+ahead = '⇡${count}'
+behind = '⇣${count}'
+diverged = '⇕⇡${ahead_count}⇣${behind_count}'
+up_to_date = '✓'
+untracked = '🤷'
+stashed = '📦'
+modified = '📝'
+staged = '[++\($count\)](green)'
+renamed = '👅'
+deleted = '🗑'
 
 [git_state]
 format = '\([$state( $progress_current/$progress_total)]($style)\) '
@@ -64,3 +68,16 @@ style = "bright-black"
 [cmd_duration]
 format = "[$duration]($style) "
 style = "yellow"
+
+[container]
+format = '[$symbol]($style) '
+
+[helm]
+format = 'via [⎈ $version](bold white) '
+
+[kubernetes]
+format = 'on [⛵ ($user on )($cluster in )$context \($namespace\)](dimmed green) '
+disabled = false
+contexts = [
+  { context_pattern = "dev.local.cluster.k8s", style = "green", symbol = "💔 " },
+]
