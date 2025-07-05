@@ -24,14 +24,14 @@ abbr -a -- gwhoami 'echo "user.name:" (git config user.name) && echo "user.email
 # kubernetes
 # https://github.com/ahmetb/kubectl-aliases/blob/master/.kubectl_aliases
 abbr -a -- k 'kubectl'
-abbr -a -- kn='kubectl config set-context --current --namespace'
-abbr -a -- kge='kubectl get events --sort-by=.lastTimestamp'
-abbr -a -- kdesc='kubectl describe'
-abbr -a -- kgn='kubectl get nodes'
-abbr -a -- kgp='kubectl get pods'
-abbr -a -- kgpa='kubectl get pods -- all-namespaces'
-abbr -a -- kgs='kubectl get services'
-abbr -a -- kgd='kubectl get deployments'
+abbr -a -- kn 'kubectl config set-context --current --namespace'
+abbr -a -- kge 'kubectl get events --sort-by=.lastTimestamp'
+abbr -a -- kdesc 'kubectl describe'
+abbr -a -- kgn 'kubectl get nodes'
+abbr -a -- kgp 'kubectl get pods'
+abbr -a -- kgpa 'kubectl get pods -- all-namespaces'
+abbr -a -- kgs 'kubectl get services'
+abbr -a -- kgd 'kubectl get deployments'
 
 # talos
 abbr -a -- t 'talosctl'
