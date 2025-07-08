@@ -5,7 +5,7 @@
         "dockerfile": "Dockerfile"
     },
 
-    "workspaceFolder": "/workspace/dotfiles",
+    "workspaceFolder": "/workspace/dr3dr3-dotfiles",
 
     "customizations": {
         "vscode": {

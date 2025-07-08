@@ -1,5 +1,9 @@
 # My personal dotfiles
 
+## DevPod
+
+If you use DevPod.sh and set the dotfile repo, it will run the `setup.sh` script to install all dotfiles
+
 ## Fish Shell - Tips
 
 * Use `cdh` to select from previous directories
