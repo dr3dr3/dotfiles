@@ -1,4 +1,6 @@
 #!/bin/sh
 
-cd dotfiles
-stow .
+eccho "dotfiles setup"
+
+# cd dotfiles
+# stow .
