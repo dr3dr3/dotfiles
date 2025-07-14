@@ -33,12 +33,17 @@ format = "[$user]($style) "
 
 [character]
 format = "$symbol "
-success_symbol = "[❱](purple)"
-error_symbol = "[❱](red)"
-vimcmd_symbol = "[❰](cyan)"
+success_symbol = '[➜](bold green)'
+error_symbol = '[✗](bold red) '
 
 [shell]
-fish_indicator = '🐠'
+bash_indicator = '# '
+nu_indicator = '🌟 '
+fish_indicator = '🐠 '
+powershell_indicator = '>_ '
+unknown_indicator = 'mystery shell'
+style = 'cyan bold'
+disabled = false
 style = 'cyan bold'
 disabled = false
 
@@ -49,17 +54,17 @@ style = "bright-black"
 [git_status]
 format = "[[(*$conflicted$untracked$modified$staged$renamed$deleted)](218) ($ahead_behind$stashed)]($style)"
 style = "cyan"
-conflicted = '🏳'
-ahead = '⇡${count}'
-behind = '⇣${count}'
-diverged = '⇕⇡${ahead_count}⇣${behind_count}'
-up_to_date = '✓'
-untracked = '🤷'
-stashed = '📦'
-modified = '📝'
-staged = '[++\($count\)](green)'
-renamed = '👅'
-deleted = '🗑'
+conflicted = '🏳 '
+ahead = '⇡${count} '
+behind = '⇣${count} '
+diverged = '⇕⇡${ahead_count}⇣${behind_count} '
+up_to_date = '✓ '
+untracked = '🤷 '
+stashed = '📦 '
+modified = '📝 '
+staged = '[++\($count\)](green) '
+renamed = '👅 '
+deleted = '🗑 '
 
 [git_state]
 format = '\([$state( $progress_current/$progress_total)]($style)\) '
