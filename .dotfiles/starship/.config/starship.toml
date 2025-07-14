@@ -37,6 +37,7 @@ success_symbol = '[➜](bold green) '
 error_symbol = '[✗](bold red) '
 
 [shell]
+format = '[$indicator]($style) '
 bash_indicator = '# '
 nu_indicator = '🌟 '
 fish_indicator = '🐠 '
@@ -48,21 +49,23 @@ disabled = false
 [git_branch]
 format = "[$branch]($style)"
 style = "bright-black"
+disabled = false
 
 [git_status]
-format = "[[(*$conflicted$untracked$modified$staged$renamed$deleted)](218) ($ahead_behind$stashed)]($style)"
+format = "[[(*$conflicted$untracked$modified$staged$renamed$deleted)](218) ($ahead_behind$stashed)]($style) "
 style = "cyan"
-conflicted = '🏳 '
-ahead = '⇡${count} '
-behind = '⇣${count} '
-diverged = '⇕⇡${ahead_count}⇣${behind_count} '
-up_to_date = '✓ '
-untracked = '🤷 '
-stashed = '📦 '
-modified = '📝 '
-staged = '[++\($count\)](green) '
-renamed = '👅 '
-deleted = '🗑 '
+conflicted = '🏳'
+ahead = '⇡${count}'
+behind = '⇣${count}'
+diverged = '⇕⇡${ahead_count}⇣${behind_count}'
+up_to_date = '✓'
+untracked = '🤷'
+stashed = '📦'
+modified = '📝'
+staged = '[++\($count\)](green)'
+renamed = '👅'
+deleted = '🗑'
+disabled = false
 
 [git_state]
 format = '\([$state( $progress_current/$progress_total)]($style)\) '
@@ -74,13 +77,16 @@ style = "yellow"
 
 [container]
 format = '[$symbol]($style) '
+symbol = '⬢'
+style = 'bold red dimmed'
+disabled = false
 
 [helm]
 format = 'via [⎈ $version](bold white) '
 
 [kubernetes]
 format = 'on [⛵ ($user on )($cluster in )$context \($namespace\)](dimmed green) '
-disabled = false
 contexts = [
   { context_pattern = "dev.local.cluster.k8s", style = "green", symbol = "💔 " },
 ]
+disabled = false
