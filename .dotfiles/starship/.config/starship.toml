@@ -33,7 +33,7 @@ format = "[$user]($style) "
 
 [character]
 format = "$symbol "
-success_symbol = '[➜](bold green)'
+success_symbol = '[➜](bold green) '
 error_symbol = '[✗](bold red) '
 
 [shell]
@@ -42,8 +42,6 @@ nu_indicator = '🌟 '
 fish_indicator = '🐠 '
 powershell_indicator = '>_ '
 unknown_indicator = 'mystery shell'
-style = 'cyan bold'
-disabled = false
 style = 'cyan bold'
 disabled = false
 
