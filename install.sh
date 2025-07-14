@@ -9,6 +9,6 @@ git config --global user.email "git@andredreyer.com"
 # Install dotfiles
 mv ~/dotfiles/.dotfiles ~
 cd ~/.dotfiles
-stow fish starship
+stow */
 
 exit 0
