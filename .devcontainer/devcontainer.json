@@ -7,7 +7,7 @@
 
     "workspaceFolder": "/workspace",
 
-    "postCreateCommand": "gum style --foreground 003 --border-foreground 003 --border rounded --align center --width 50 --margin '1 2' --padding '2 4' 'André Dreyer's' 'dotfiles'",
+    "postCreateCommand": "gum style --foreground 003 --border-foreground 003 --border rounded --align center --width 50 --margin '1 2' --padding '2 4' 'André Dreyer' 'dotfiles'",
 
     "customizations": {
         "vscode": {
