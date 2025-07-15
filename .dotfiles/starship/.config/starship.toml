@@ -25,11 +25,11 @@ error_symbol = '[✗](bold red) '
 
 [shell]
 format = '[$indicator]($style) '
-bash_indicator = '# '
-nu_indicator = '🌟 '
-fish_indicator = '🐠 '
-powershell_indicator = '>_ '
-unknown_indicator = '?>_ '
+bash_indicator = 'bash >_ '
+nu_indicator = 'nu >_ '
+fish_indicator = 'fish >_ '
+powershell_indicator = 'ps >_ '
+unknown_indicator = '? >_ '
 style = 'cyan bold'
 disabled = false
 
