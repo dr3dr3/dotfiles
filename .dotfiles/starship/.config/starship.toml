@@ -9,19 +9,6 @@ $cmd_duration\
 $line_break\
 $character"""
 
-# Set the color palette
-palette = "wombat"
-
-[palettes.wombat]
-black = '#000000'
-blue = '#5da9f6'
-cyan = '#82fff7'
-green = '#b1e969'
-purple = '#e86aff'
-red = '#ff615a'
-white = '#dedacf'
-yellow = '#ebd99c'
-
 [directory]
 style = "blue"
 truncation_length = 8
