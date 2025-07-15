@@ -3,6 +3,9 @@ starship init fish | source
 # Disable new user greeting.
 set -U fish_greeting
 
+# Set default text editor
+set -gx EDITOR vim
+
 # date/time
 abbr -a -- ds 'date +%Y-%m-%d'
 abbr -a -- ts 'date +%Y-%m-%dT%H:%M:%SZ'
