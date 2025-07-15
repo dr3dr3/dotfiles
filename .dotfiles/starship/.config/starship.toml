@@ -42,7 +42,7 @@ bash_indicator = '# '
 nu_indicator = '🌟 '
 fish_indicator = '🐠 '
 powershell_indicator = '>_ '
-unknown_indicator = 'mystery shell'
+unknown_indicator = '?>_ 
 style = 'cyan bold'
 disabled = false
 
