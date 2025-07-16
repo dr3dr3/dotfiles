@@ -17,6 +17,8 @@
                 "ms-azuretools.vscode-docker"
             ],
             "settings": {
+                "editor.fontFamily": "FiraCode Nerd Font, monospace",
+                "editor.fontSize": 14,
                 "terminal.integrated.defaultProfile.linux": "fish", 
                 "terminal.integrated.profiles.linux": {
                     "fish": {

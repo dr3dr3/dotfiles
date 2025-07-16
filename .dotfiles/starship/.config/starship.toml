@@ -1,10 +1,14 @@
 format = """
+$shell\
 $username\
 $hostname\
 $directory\
 $git_branch\
 $git_state\
 $git_status\
+$container\
+$helm\
+$kubernetes\
 $cmd_duration\
 $line_break\
 $character"""
@@ -16,29 +20,32 @@ truncate_to_repo = false
 truncation_symbol = "…/"
 
 [username]
+disabled = false
 format = "[$user]($style) "
 
 [character]
+disabled = false
 format = "$symbol "
 success_symbol = '[➜](bold green) '
 error_symbol = '[✗](bold red) '
 
 [shell]
-format = '[$indicator]($style) '
-bash_indicator = 'bash >_ '
-nu_indicator = 'nu >_ '
-fish_indicator = 'fish >_ '
-powershell_indicator = 'ps >_ '
-unknown_indicator = '? >_ '
-style = 'cyan bold'
 disabled = false
+format = '[$indicator]($style) '
+style = 'cyan bold'
+bash_indicator = '🤜'
+nu_indicator = '🐢'
+fish_indicator = '🐠'
+powershell_indicator = '>_'
+unknown_indicator = '⚙️'
 
 [git_branch]
+disabled = false
 format = "[$branch]($style)"
 style = "bright-black"
-disabled = false
 
 [git_status]
+disabled = false
 format = " [[(*$conflicted$untracked$modified$staged$renamed$deleted)](218) ($ahead_behind$stashed)]($style) "
 style = "cyan"
 conflicted = '🏳'
@@ -52,28 +59,29 @@ modified = '📝'
 staged = '[++\($count\)](green)'
 renamed = '👅'
 deleted = '🗑'
-disabled = false
 
 [git_state]
+disabled = false
 format = '\([$state( $progress_current/$progress_total)]($style)\) '
 style = "bright-black"
 
 [cmd_duration]
+disabled = false
 format = "[$duration]($style) "
 style = "yellow"
 
 [container]
+disabled = false
 format = '[$symbol]($style) '
 symbol = '⬢'
-style = 'bold red dimmed'
-disabled = false
+style = 'white dimmed'
 
 [helm]
 format = 'via [⎈ $version](bold white) '
 
 [kubernetes]
+disabled = false
 format = 'on [⛵ ($user on )($cluster in )$context \($namespace\)](dimmed green) '
 contexts = [
   { context_pattern = "dev.local.cluster.k8s", style = "green", symbol = "💔 " },
 ]
-disabled = false

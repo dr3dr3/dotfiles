@@ -3,7 +3,7 @@ FROM alpine:${ALPINE_VERSION}
 
 LABEL maintainer="Andre Dreyer"
 
-RUN apk add --no-cache fish starship stow git gum
+RUN apk add --no-cache nushell fish starship stow git gum font-fira-code-nerd
 
 ENV SHELL=/usr/bin/fish
 
