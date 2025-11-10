@@ -12,9 +12,13 @@
     "customizations": {
         "vscode": {
             "extensions": [
+                "ms-vscode.live-server",
+                "esbenp.prettier-vscode",
                 "github.vscode-pull-request-github",
-                "github.copilot",
                 "ms-azuretools.vscode-docker",
+                "ms-azuretools.vscode-containers",
+                "github.copilot",
+                "Anthropic.claude-code",
                 "TheNuProjectContributors.vscode-nushell-lang",
                 "tamasfe.even-better-toml"
             ],
@@ -31,3 +35,4 @@
         }
     }
 }
+
