@@ -22,12 +22,15 @@ truncation_symbol = "…/"
 [username]
 disabled = false
 format = "[$user]($style) "
+style_root = 'bold red'
+style_user = 'bold yellow'
+aliases = { "root" = "💀", "andré" = "😎" }
 
 [character]
 disabled = false
 format = "$symbol "
 success_symbol = '[➜](bold green) '
-error_symbol = '[✗](bold red) '
+error_symbol = '[➜](bold red) '
 
 [shell]
 disabled = false
@@ -36,17 +39,17 @@ style = 'cyan bold'
 bash_indicator = '🤜'
 nu_indicator = '🐢'
 fish_indicator = '🐠'
-powershell_indicator = '>_'
+powershell_indicator = ' '
 unknown_indicator = '⚙️'
 
 [git_branch]
 disabled = false
-format = "[$branch]($style)"
+format = "[$branch]($style) "
 style = "bright-black"
 
 [git_status]
 disabled = false
-format = " [[(*$conflicted$untracked$modified$staged$renamed$deleted)](218) ($ahead_behind$stashed)]($style) "
+format = "[[($conflicted$untracked$modified$staged$renamed$deleted)](218) ($ahead_behind$stashed)]($style) "
 style = "cyan"
 conflicted = '🏳'
 ahead = '⇡${count}'
@@ -73,7 +76,7 @@ style = "yellow"
 [container]
 disabled = false
 format = '[$symbol]($style) '
-symbol = '⬢'
+symbol = '󰆧'
 style = 'white dimmed'
 
 [helm]
@@ -81,7 +84,4 @@ format = 'via [⎈ $version](bold white) '
 
 [kubernetes]
 disabled = false
-format = 'on [⛵ ($user on )($cluster in )$context \($namespace\)](dimmed green) '
-contexts = [
-  { context_pattern = "dev.local.cluster.k8s", style = "green", symbol = "💔 " },
-]
+format = 'on [ $cluster \($namespace\)](dimmed green) '

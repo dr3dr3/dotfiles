@@ -14,7 +14,9 @@
             "extensions": [
                 "github.vscode-pull-request-github",
                 "github.copilot",
-                "ms-azuretools.vscode-docker"
+                "ms-azuretools.vscode-docker",
+                "TheNuProjectContributors.vscode-nushell-lang",
+                "tamasfe.even-better-toml"
             ],
             "settings": {
                 "editor.fontFamily": "FiraCode Nerd Font, monospace",

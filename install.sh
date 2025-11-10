@@ -7,7 +7,9 @@ git config --global user.name "Andre Dreyer"
 git config --global user.email "git@andredreyer.com"
 
 # Install dotfiles
+cp -r /workspace/.dotfiles ~/dotfiles/
 mv ~/dotfiles/.dotfiles ~
+rm -r ~/dotfiles
 cd ~/.dotfiles
 stow */
 
