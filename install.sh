@@ -2,8 +2,11 @@
 
 # Devpod runs this script when using dotfiles
 
+# Install tools
+apk add --no-cache stow git vim fish starship font-fira-code-nerd
+
 # Install dotfiles
-cp -r ./.dotfiles ~/.dotfiles/
+cp -rf ./.dotfiles ~/.dotfiles/
 cd ~/.dotfiles
 stow --delete */
 stow --adopt */
