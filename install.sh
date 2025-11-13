@@ -5,6 +5,7 @@
 # Install dotfiles
 cp -r ./.dotfiles ~/.dotfiles/
 cd ~/.dotfiles
-stow */
+stow --delete */
+stow --adopt */
 
 exit 0
