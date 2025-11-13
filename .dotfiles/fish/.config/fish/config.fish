@@ -1,5 +1,3 @@
-starship init fish | source
-
 # Disable new user greeting.
 set -U fish_greeting
 
@@ -42,3 +40,5 @@ abbr -a -- tgc 'talosctl gen config'
 abbr -a -- ta 'talosctl apply-config -n $TALOSIP -e $TALOSIP --talosconfig=$TALOSCONF'
 abbr -a -- tl 'talosctl logs -f'
 abbr -a -- tm 'talosctl dmesg -f -e $TALOSIP -n $TALOSIP'
+
+starship init fish | source

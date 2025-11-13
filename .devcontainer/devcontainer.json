@@ -18,7 +18,6 @@
                 "ms-azuretools.vscode-docker",
                 "ms-azuretools.vscode-containers",
                 "github.copilot",
-                "Anthropic.claude-code",
                 "TheNuProjectContributors.vscode-nushell-lang",
                 "tamasfe.even-better-toml"
             ],
