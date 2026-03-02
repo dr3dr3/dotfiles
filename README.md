@@ -1,42 +1,40 @@
 # André Dreyer's Dotfiles
 
-A collection of personal configuration files for various development tools and shells, designed for use with DevPod.sh and development containers.
+A collection of personal configuration files for various development tools and shells, intended for use inside Ubuntu 24.04-based dev containers.
 
-## 🚀 Quick Start
+## 🚀 Usage
 
-### DevPod Integration
+This repo is designed to be cloned into other repositories as a `.dotfiles` subfolder. The `install.sh` script is then run from there to set up the shell environment inside the dev container. It only modifies the container's home directory (`~`) and does not touch the host repo's workspace.
 
-This repository is designed to work seamlessly with [DevPod.sh](https://devpod.sh/). When you set this as your dotfiles repository in DevPod, it will automatically run the `install.sh` script to set up your development environment.
+### Setup in a Project
 
-### Manual Installation
+In your project's devcontainer setup (e.g. `postCreateCommand` or `postStartCommand`), clone this repo and run the install script:
 
 ```bash
-git clone https://github.com/dr3dr3/dotfiles.git
-cd dotfiles
-./install.sh
+git clone https://github.com/dr3dr3/dotfiles.git .dotfiles
+bash .dotfiles/install.sh
 ```
+
+This will:
+
+1. Install required tools (`fish`, `nushell`, `starship`, `stow`, `git`, `vim`) via `apt-get`
+2. Apply dotfile configurations to `~` using GNU Stow
 
 ## 📁 What's Included
 
 This dotfiles repository includes configurations for:
 
 - **Fish Shell** - Modern shell with intelligent autocompletions
-- **Nushell** - Data-driven shell with structured output  
+- **Nushell** - Data-driven shell with structured output
 - **Starship** - Fast, customizable prompt for any shell
 - **Vim** - Lightweight text editor configuration
 
 All configurations are managed using [GNU Stow](https://www.gnu.org/software/stow/) for easy symlink management.
 
-## 🐳 Development Container
+## 🐳 Target Environment
 
-The repository includes a complete development container setup:
-
-- **Base Image**: Alpine Linux (latest)
-- **Pre-installed Tools**: Fish, Nushell, Starship, Stow, Git, Gum, FiraCode Nerd Font
-- **VS Code Extensions**: GitHub Copilot, GitHub Pull Requests, Docker
-- **Default Shell**: Fish
-
-To use with VS Code Dev Containers, simply open this repository in VS Code and select "Reopen in Container" when prompted.
+- **Base Image**: Ubuntu 24.04
+- **Default Shell**: Bash
 
 ## 🐟 Fish Shell Tips
 

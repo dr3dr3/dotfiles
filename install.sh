@@ -1,13 +1,17 @@
-#!/bin/sh
+#!/bin/bash
 
-# Devpod runs this script when using dotfiles
+# Update package lists
+apt-get update
 
 # Install tools
-apk add --no-cache stow git vim fish starship font-fira-code-nerd
+apt-get install -y stow git vim fish nushell
 
-# Install dotfiles
-cp -rf ./.dotfiles ~/.dotfiles/
-cd ~/.dotfiles
+# Install Starship
+curl -sS https://starship.rs/install.sh | sh -s -- --yes
+
+# Apply dotfiles via stow from this repo's directory
+DOTFILES_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$DOTFILES_DIR"
 stow --delete */
 stow --adopt */
 
