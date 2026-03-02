@@ -6,10 +6,13 @@ $directory\
 $git_branch\
 $git_state\
 $git_status\
+$nodejs\
+$php\
 $container\
 $helm\
 $kubernetes\
 $cmd_duration\
+$time\
 $line_break\
 $character"""
 command_timeout = 5000
@@ -37,10 +40,10 @@ error_symbol = '[➜](bold red) '
 disabled = false
 format = '[$indicator]($style) '
 style = 'cyan bold'
-bash_indicator = '🤜'
+bash_indicator = '🐚'
 nu_indicator = '🐢'
 fish_indicator = '🐠'
-powershell_indicator = ' '
+powershell_indicator = '🪟'
 unknown_indicator = '⚙️'
 
 [git_branch]
@@ -52,17 +55,17 @@ style = "bright-black"
 disabled = false
 format = "[[($conflicted$untracked$modified$staged$renamed$deleted)](218) ($ahead_behind$stashed)]($style) "
 style = "cyan"
-conflicted = '🏳'
+conflicted = '✘'
 ahead = '⇡${count}'
 behind = '⇣${count}'
 diverged = '⇕⇡${ahead_count}⇣${behind_count}'
 up_to_date = '✓'
-untracked = '🤷'
+untracked = '?'
 stashed = '📦'
-modified = '📝'
-staged = '[++\($count\)](green)'
-renamed = '👅'
-deleted = '🗑'
+modified = '~'
+staged = '+${count}'
+renamed = '»'
+deleted = '✖'
 
 [git_state]
 disabled = false
@@ -77,8 +80,25 @@ style = "yellow"
 [container]
 disabled = false
 format = '[$symbol]($style) '
-symbol = '󰆧'
+symbol = '🐳'
 style = 'white dimmed'
+
+[nodejs]
+disabled = false
+format = 'via [⬢ $version](bold green) '
+detect_files = ['package.json']
+detect_folders = ['node_modules']
+
+[php]
+disabled = false
+format = 'via [🐘 $version](bold blue) '
+detect_files = ['composer.json']
+
+[time]
+disabled = false
+format = '[$time]($style) '
+style = 'dimmed white'
+time_format = '%H:%M'
 
 [helm]
 format = 'via [⎈ $version](bold white) '
