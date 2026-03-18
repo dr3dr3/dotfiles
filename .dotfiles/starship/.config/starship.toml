@@ -16,6 +16,7 @@ $time\
 $line_break\
 $character"""
 command_timeout = 5000
+scan_timeout = 100
 
 [directory]
 style = "blue"
