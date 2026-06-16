@@ -1,8 +1,59 @@
 # André Dreyer's Dotfiles
 
-A collection of personal configuration files for various development tools and shells, intended for use inside Ubuntu 24.04-based dev containers.
+A collection of personal configuration files for development tools and shells.
+Two target environments share one Stow-managed `.dotfiles/` tree:
 
-## 🚀 Usage
+- **macOS host** (Apple Silicon) — terminal-first, orchestration-oriented dev
+  machine. See [macOS Setup](#-macos-setup).
+- **Ubuntu 24.04 dev containers** — the original target. See [Dev Container Usage](#-dev-container-usage).
+
+## 🍎 macOS Setup
+
+> 🆕 **Setting up a new Mac?** Follow the full end-to-end runbook in
+> **[SETUP.md](SETUP.md)** (host + per-project agents + repo layout). The quick
+> version is below.
+
+A fresh M-series Mac is provisioned by `bootstrap-mac.sh`, which installs
+Homebrew, applies the `Brewfile`, and stows the macOS dotfiles. Repos live under
+`~/Code/<org-or-username>/<repo>`:
+
+```bash
+git clone https://github.com/dr3dr3/dotfiles.git ~/Code/dr3dr3/dotfiles
+cd ~/Code/dr3dr3/dotfiles && ./bootstrap-mac.sh
+```
+
+It is idempotent (safe to re-run) and will:
+
+1. Install **Homebrew** (if missing) and everything in [`Brewfile`](Brewfile)
+2. Stow the macOS packages (`zsh ghostty starship fish nushell`) into `~`
+3. Set up host **Node via fnm** + install `@devcontainers/cli` (npm-only)
+4. Create `~/Code` (repo layout) and `~/host-share` (mounted into containers)
+5. Print the one-time manual steps (1Password SSH agent, default shell, …)
+
+**Stack:** Ghostty terminal · OrbStack engine · `@devcontainers/cli` to boot
+stacks headlessly · Ollama (local LLM, fallback only) · 1Password for secrets.
+The host is a **launcher** — AI agents (Claude Code, Codex, Pi) run *inside* the
+dev containers, provisioned by [dotai](https://github.com/dr3dr3/dotai); the
+`cc`/`cca`/`cx`/`pi` aliases just `devcontainer exec` into them. Secret wiring
+([`zsh/agents.zsh`](.dotfiles/zsh/.config/zsh/agents.zsh)) resolves `op://` refs
+via the mounted 1Password agent — no hand-rolled key injection.
+
+📖 **Full command + maintenance reference:** [`docs/CHEATSHEET.md`](docs/CHEATSHEET.md)
+— daily aliases, devcontainer workflow, Ghostty⇄container usage, secrets, and
+the keep-it-current/CVE-scan routine ([`update-mac.sh`](update-mac.sh)).
+
+Handy aliases (see [`aliases.zsh`](.dotfiles/zsh/.config/zsh/aliases.zsh) /
+[`agents.zsh`](.dotfiles/zsh/.config/zsh/agents.zsh)):
+
+| Alias | Expands to |
+| --- | --- |
+| `dcu` / `dcb` / `dce` | `devcontainer up` / rebuild / `exec` (current folder) |
+| `cc` / `cca` / `cx` | Claude Code (personal / corporate-API) · Codex — in-container |
+| `oll` / `olp` / `olr` | `ollama list` / `ps` / `run` |
+| `clone` / `cdc` | clone into / cd to `~/Code/<org>/<repo>` |
+| `roe` | `code roe-local-dev.code-workspace` (never bare `code .`) |
+
+## 🐳 Dev Container Usage
 
 This repo is designed to be cloned into a project's devcontainer setup. The `install.sh` script sets up the shell environment inside the container — it only modifies the container's home directory (`~`) and does not touch the host workspace.
 
@@ -31,11 +82,18 @@ Dotfile configs live in `.dotfiles/` and are organised as [GNU Stow](https://www
 
 ```
 .dotfiles/
-  fish/        → ~/.config/fish/        (Fish shell config)
-  nushell/     → ~/.config/nushell/     (Nushell config)
-  starship/    → ~/.config/starship.toml (Starship prompt)
-  vim/         → ~/.vimrc               (Vim config)
+  zsh/         → ~/.zshrc + ~/.config/zsh/   (macOS host default shell)
+  ghostty/     → ~/.config/ghostty/config    (macOS terminal)
+  fish/        → ~/.config/fish/             (Fish shell — host + containers)
+  nushell/     → ~/.config/nushell/          (Nushell — host + containers)
+  starship/    → ~/.config/starship.toml     (Starship prompt — shared)
+  vim/         → ~/.vimrc                     (Vim config)
 ```
+
+On the **macOS host**, `bootstrap-mac.sh` stows `zsh ghostty starship fish nushell`,
+and Fish + Nushell carry the same host wiring as zsh (fnm, 1Password agent,
+fzf/zoxide, the devcontainer/agent aliases). In **containers**, `install.sh`
+stows `fish nushell starship vim`.
 
 To apply a single package manually: `cd .dotfiles && stow --target "$HOME" fish`
 
