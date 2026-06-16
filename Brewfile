@@ -28,6 +28,13 @@ brew "gh"                   # GitHub CLI (auth, PRs, gh api)
 brew "stow"                 # GNU Stow — symlinks the dotfiles in this repo
 brew "starship"             # cross-shell prompt (config shared with containers)
 
+# --- Shells (zsh is the wired-up default; fish + nu are alt drivers) ----------
+# Single self-contained binaries, no daemons. fish pulls pcre2, nushell pulls
+# openssl@3 — both tiny / already present. Host wiring (fnm, 1Password agent,
+# fzf/zoxide, devcontainer + agent aliases) is mirrored into all three shells.
+brew "fish"                 # config: .dotfiles/fish
+brew "nushell"              # config: .dotfiles/nushell  (binary: `nu`)
+
 # --- Modern CLI productivity (single binaries, no daemons — host stays clean) -
 brew "ripgrep"              # rg — fast code search (agents/editors lean on it)
 brew "fd"                   # fast, ergonomic `find`

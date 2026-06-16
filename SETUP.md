@@ -68,6 +68,16 @@ exec zsh
    brew tap homebrew/autoupdate
    brew autoupdate start 86400 --upgrade --cleanup --enable-notification
    ```
+5. *(optional)* **Shells** — zsh is the default and the most wired-up, but Fish
+   and Nushell carry the same host wiring (fnm, 1Password agent, fzf/zoxide,
+   the `dc*`/`cc`/`oll`/`clone` shortcuts). To make one the login shell:
+   ```bash
+   which fish | sudo tee -a /etc/shells   # register it once (fish/nu)
+   chsh -s "$(which fish)"                 # or $(which nu)
+   ```
+   Or just run `fish` / `nu` ad-hoc from zsh. Two Nushell caveats: `fzf`
+   key-bindings aren't native (call `fzf` directly, or use zoxide's `zi`), and
+   `ls`/`cat` stay Nu built-ins (not aliased to eza/bat).
 
 ### Verify the host
 

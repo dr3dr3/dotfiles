@@ -72,11 +72,11 @@ This will:
 
 This dotfiles repository includes configurations for:
 
-- **Zsh** - macOS host shell (fnm, 1Password agent, agent/devcontainer aliases)
+- **Zsh** - macOS host default shell (fnm, 1Password agent, agent/devcontainer aliases)
 - **Ghostty** - native macOS terminal configuration
-- **Fish Shell** - Modern shell with intelligent autocompletions (containers)
-- **Nushell** - Data-driven shell with structured output (containers)
-- **Starship** - Fast, customizable prompt for any shell (shared)
+- **Fish Shell** - alt host shell + containers; same host wiring as zsh
+- **Nushell** - alt host shell + containers; same host wiring as zsh
+- **Starship** - Fast, customizable prompt for all three shells (shared)
 - **Vim** - Lightweight text editor configuration
 
 All configurations are managed using [GNU Stow](https://www.gnu.org/software/stow/) for easy symlink management.
