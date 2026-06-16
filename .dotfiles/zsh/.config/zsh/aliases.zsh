@@ -56,7 +56,7 @@ alias gp='git push'
 alias gpll='git pull'
 alias gs='git status -sb'
 alias glog="git log --graph --pretty='%Cred%h%Creset -%C(auto)%d%Creset %s %Cgreen(%ad) %C(bold blue)<%an>%Creset' --date=short"
-alias gclone='git clone git@github.com:dr3dr3/'
+# (to clone, prefer the `clone` function above — it enforces ~/Code/<org>/<repo>)
 alias gwhoami='echo "user.name: $(git config user.name)"; echo "user.email: $(git config user.email)"'
 
 # --- modern CLI replacements (interactive only) ------------------------------
@@ -66,9 +66,23 @@ alias lt='eza --tree --level=2 --group-directories-first'
 alias cat='bat --paging=never'
 alias lg='lazygit'
 
+# --- repos: canonical ~/Code/<org-or-user>/<repo> layout ---------------------
+export CODE_DIR="$HOME/Code"
+# Clone into ~/Code/<org>/<repo> and cd in.  Usage: clone dr3dr3/dotfiles
+#   (defaults to github.com + SSH; pass a host as 2nd arg for other forges)
+clone() {
+  local slug="${1:?usage: clone <org>/<repo> [git-host]}"
+  local host="${2:-github.com}"
+  local dest="$CODE_DIR/$slug"
+  if [[ -d "$dest/.git" ]]; then echo "exists → $dest"; cd "$dest"; return; fi
+  git clone "git@${host}:${slug}.git" "$dest" && cd "$dest"
+}
+# Jump to a repo dir: cdc dr3dr3/dotfiles  (or `cdc` for ~/Code)
+cdc() { cd "$CODE_DIR/${1:-}"; }
+
 # --- host maintenance (see update-mac.sh + docs/CHEATSHEET.md) ----------------
-alias upd='~/.dotfiles-repo/update-mac.sh'          # update + audit the host
-alias brewdump="brew bundle dump --file=~/.dotfiles-repo/Brewfile --force"  # snapshot installs
+alias upd='~/Code/dr3dr3/dotfiles/update-mac.sh'    # update + audit the host
+alias brewdump="brew bundle dump --file=~/Code/dr3dr3/dotfiles/Brewfile --force"  # snapshot installs
 
 # --- date/time ---------------------------------------------------------------
 alias ds='date +%Y-%m-%d'

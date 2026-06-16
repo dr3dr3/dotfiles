@@ -36,7 +36,7 @@ runtimes** (PHP, Node apps, MySQL, Redis…) live inside dev containers.
 ## 🐳 Dev container workflow
 
 ```bash
-cd ~/workspace            # the Rock of Eye /workspace umbrella (6 repos)
+cd ~/Code/rock-of-eye/<repo>   # repos live under ~/Code/<org-or-user>/<repo>
 dcu                       # boot: 3 Laravel + 3 Vue + MySQL + Redis + Mailpit + RustFS
 dcs                       # drop into the container shell
 dce php artisan migrate   # or run one-off commands from the host
@@ -187,7 +187,7 @@ Real CVEs live in **project lockfiles** (`composer.lock`, `package-lock.json`),
 not the host. Point the scanner at your workspace:
 
 ```bash
-osv-scanner scan --recursive ~/workspace      # or set WORKSPACE_DIR for `upd`
+osv-scanner scan --recursive ~/Code           # or set WORKSPACE_DIR for `upd`
 ```
 
 - **1Password Watchtower** flags breached/weak/reused credentials — check it.
@@ -209,7 +209,7 @@ brew leaves                           # top-level formulae (no other pkg needs t
 ## 🔄 Re-applying / editing dotfiles
 
 ```bash
-cd ~/.dotfiles-repo
+cd ~/Code/dr3dr3/dotfiles
 git pull
 ./bootstrap-mac.sh            # idempotent: re-stows, installs anything new
 # After editing a config, re-link just the dotfiles:
@@ -217,3 +217,6 @@ cd .dotfiles && stow --restow --target "$HOME" zsh ghostty starship
 ```
 
 Reload without restarting: `exec zsh` (shell) · `Cmd+Shift+,` (Ghostty).
+
+> First time on a new Mac? See **[SETUP.md](../SETUP.md)** for the full
+> end-to-end runbook (host + per-project agents).

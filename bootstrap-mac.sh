@@ -13,8 +13,8 @@
 # the dev containers (provisioned by dotai). This box only boots them.
 #
 # Usage:
-#   git clone https://github.com/dr3dr3/dotfiles.git ~/.dotfiles-repo
-#   cd ~/.dotfiles-repo && ./bootstrap-mac.sh
+#   git clone https://github.com/dr3dr3/dotfiles.git ~/Code/dr3dr3/dotfiles
+#   cd ~/Code/dr3dr3/dotfiles && ./bootstrap-mac.sh
 # =============================================================================
 set -euo pipefail
 
@@ -59,14 +59,14 @@ stow --restow --target "$HOME" "${STOW_PACKAGES[@]}"
 cd "$REPO_DIR"
 ok "Dotfiles linked into ~."
 
-# --- 3b. Host share folder (bind-mounted read-write into the dev containers) --
-# The dotai devcontainer mounts this at /host. Create it so the bind mount has a
-# real source (otherwise Docker would create a root-owned dir in its place).
-if [[ ! -d "$HOME/host-share" ]]; then
-  info "Creating ~/host-share (mounted into containers at /host)…"
-  mkdir -p "$HOME/host-share"
-fi
-ok "~/host-share ready."
+# --- 3b. Host folders --------------------------------------------------------
+# ~/Code/<org-or-user>/<repo> — canonical layout for all cloned repos
+#   (e.g. ~/Code/dr3dr3/dotfiles, ~/Code/rock-of-eye/ai-context).
+# ~/host-share — bind-mounted read-write into the dev containers at /host.
+#   Create it so the bind mount has a real source (otherwise Docker would
+#   create a root-owned dir in its place).
+mkdir -p "$HOME/Code" "$HOME/host-share"
+ok "~/Code and ~/host-share ready."
 
 # --- 4. Host Node (fnm) + @devcontainers/cli (npm-only) ----------------------
 info "Setting up host Node via fnm (CLI tooling only)…"

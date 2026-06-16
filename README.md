@@ -9,12 +9,17 @@ Two target environments share one Stow-managed `.dotfiles/` tree:
 
 ## 🍎 macOS Setup
 
+> 🆕 **Setting up a new Mac?** Follow the full end-to-end runbook in
+> **[SETUP.md](SETUP.md)** (host + per-project agents + repo layout). The quick
+> version is below.
+
 A fresh M-series Mac is provisioned by `bootstrap-mac.sh`, which installs
-Homebrew, applies the `Brewfile`, and stows the macOS dotfiles:
+Homebrew, applies the `Brewfile`, and stows the macOS dotfiles. Repos live under
+`~/Code/<org-or-username>/<repo>`:
 
 ```bash
-git clone https://github.com/dr3dr3/dotfiles.git ~/.dotfiles-repo
-cd ~/.dotfiles-repo && ./bootstrap-mac.sh
+git clone https://github.com/dr3dr3/dotfiles.git ~/Code/dr3dr3/dotfiles
+cd ~/Code/dr3dr3/dotfiles && ./bootstrap-mac.sh
 ```
 
 It is idempotent (safe to re-run) and will:

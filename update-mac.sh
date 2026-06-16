@@ -64,12 +64,12 @@ command -v codex   >/dev/null 2>&1 && { info "Codex:"; codex --version || true; 
 # Real CVEs live in the PROJECT lockfiles (composer.lock, package-lock.json),
 # not the host. Point osv-scanner at your workspace. Adjust the path as needed.
 if command -v osv-scanner >/dev/null 2>&1; then
-  SCAN_DIR="${WORKSPACE_DIR:-$HOME/workspace}"
+  SCAN_DIR="${WORKSPACE_DIR:-$HOME/Code}"
   if [[ -d "$SCAN_DIR" ]]; then
     info "Scanning $SCAN_DIR for known vulnerabilities (osv-scanner)…"
     osv-scanner scan --recursive "$SCAN_DIR" || warn "osv-scanner found issues — review above."
   else
-    warn "Set WORKSPACE_DIR to scan your repos (default $HOME/workspace not found)."
+    warn "Set WORKSPACE_DIR to scan your repos (default $HOME/Code not found)."
   fi
 fi
 
