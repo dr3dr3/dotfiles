@@ -17,6 +17,25 @@ sudo chmod +x /usr/local/bin/nu
 # Install Starship
 curl -sS https://starship.rs/install.sh | sudo sh -s -- --yes
 
+# Configure Starship for Bash
+BASH_INIT='eval "$(starship init bash)"'
+grep -qxF "$BASH_INIT" "$HOME/.bashrc" || echo "$BASH_INIT" >> "$HOME/.bashrc"
+
+# Configure Starship for Fish
+mkdir -p "$HOME/.config/fish"
+FISH_INIT='starship init fish | source'
+grep -qxF "$FISH_INIT" "$HOME/.config/fish/config.fish" 2>/dev/null \
+  || echo "$FISH_INIT" >> "$HOME/.config/fish/config.fish"
+
+# Configure Starship for Nushell (vendor/autoload method, requires Nushell v0.96+)
+NU_DATA_DIR=$(nu -c '$nu.data-dir' 2>/dev/null)
+if [[ -n "$NU_DATA_DIR" ]]; then
+  mkdir -p "$NU_DATA_DIR/vendor/autoload"
+  starship init nu | tee "$NU_DATA_DIR/vendor/autoload/starship.nu" > /dev/null
+else
+  echo "Warning: could not determine Nushell data directory; skipping Starship/Nushell config"
+fi
+
 # Apply dotfiles via stow from the packages directory
 DOTFILES_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$DOTFILES_DIR/.dotfiles"
