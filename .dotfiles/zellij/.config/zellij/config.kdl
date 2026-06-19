@@ -1,0 +1,21 @@
+// ~/.config/zellij/config.kdl — minimal (stow package: zellij)
+// Zellij ships sane defaults; only a few host tweaks here.
+//
+// Persistence: the zellij *server* keeps panes + processes alive after you
+// detach (Ctrl-o d) or even quit Ghostty — reattach with `zellij attach main`
+// (alias: zj). Sessions are also serialized to disk, so the layout survives a
+// reboot and can be resurrected (running process state does not — nothing short
+// of checkpoint/restore preserves that).
+//
+// We deliberately do NOT set `default_layout` — start the 2x2 workspace
+// explicitly with `zjd` (zellij --layout dev) when you want it, so plain
+// `zellij` / `zj` stays a single shell.
+
+// Use the macOS clipboard for copy (no-op / harmless elsewhere).
+copy_command "pbcopy"
+
+// Keep pane borders + titles (the pane names from the layout show here).
+pane_frames true
+
+// Don't nag about updates — Homebrew manages the binary.
+show_release_notes false

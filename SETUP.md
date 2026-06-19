@@ -140,9 +140,49 @@ These `devcontainer exec` into the project's container — nothing runs on the h
    [agents.zsh](.dotfiles/zsh/.config/zsh/agents.zsh) to match your real vault item.
 2. **Pi + local model (optional)** — Pi has no built-in permission system (the
    container is its sandbox) and reaches local models via a `models.json`, not
-   env vars. On the host: `olu qwen2.5-coder:32b`. In the container, add
-   `~/.config/pi/models.json` pointing Pi at the host Ollama,
-   `http://host.docker.internal:11434/v1`.
+   env vars. Start Ollama on the host (see below), then in the container add
+   `~/.config/pi/models.json` pointing Pi at `http://host.docker.internal:11434/v1`.
+
+---
+
+## Local LLM — Ollama (fallback / transient only)
+
+Installed as the **`brew "ollama"` formula** (headless CLI + server, no menu-bar
+app) — the cleanest fit for a terminal-first, fallback-only tool. You control the
+server lifecycle and reclaim memory when idle:
+
+```bash
+brew services start ollama     # background server (or: `ollama serve` in a pane)
+olu qwen2.5-coder:32b          # pull a model   (olr = run, olp = ps, oll = list)
+brew services stop ollama      # fully free memory when done
+```
+
+- **Let in-container agents reach it.** Ollama binds `127.0.0.1` by default, so
+  containers can't hit `host.docker.internal`. Expose it by running the server
+  with `OLLAMA_HOST=0.0.0.0:11434` — e.g. set it for the service:
+  ```bash
+  OLLAMA_HOST=0.0.0.0:11434 brew services restart ollama
+  ```
+  This matches the `OLLAMA_HOST` the dotai devcontainer sets for the container side.
+- **Memory budget:** a 32b model is ~20GB resident in unified memory and competes
+  with the ~16GB dev stack. Models auto-unload after ~5 min idle; `olrm <model>`
+  or `brew services stop ollama` frees it immediately. Local LLM memory is not free.
+- Prefer the native menu-bar app instead? Swap `brew "ollama"` →
+  `cask "ollama-app"` in the [Brewfile](Brewfile).
+
+---
+
+## Terminal sessions — Zellij (optional)
+
+Ghostty restores window/tab *layout* but not running processes. Zellij keeps
+panes + processes alive across detach / Ghostty quit:
+
+```bash
+zjd                     # 2x2 host/container/agent/logs workspace (zellij --layout dev)
+zj                      # attach/create the persistent "main" session
+# ...run dcs / cc / dcl in panes, detach with Ctrl-o d, quit Ghostty...
+zellij attach main      # everything's still running   (zjl = list sessions)
+```
 
 ---
 

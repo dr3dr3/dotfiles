@@ -34,6 +34,11 @@ alias dcl='docker compose logs -f'                                       # tail 
 alias lzd='lazydocker'                                                    # container TUI
 alias orb='orbstack'                                                      # `orb start|stop|status`
 
+# --- zellij (persistent sessions + layouts) ----------------------------------
+alias zj='zellij attach --create main'   # everyday persistent session
+alias zjd='zellij --layout dev'          # 2x2 host/container/agent/logs workspace
+alias zjl='zellij list-sessions'
+
 # --- JIT editor — ALWAYS the multi-root workspace, never `code .` ------------
 # Bare `code .` breaks per-repo Laravel Extra Intellisense routing in the
 # Rock of Eye /workspace umbrella. Open the workspace file from /workspace.

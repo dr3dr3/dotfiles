@@ -63,6 +63,10 @@ brew "dive"                # inspect image layers when debugging a Dockerfile
 
 # --- Terminal ----------------------------------------------------------------
 cask "ghostty"             # native GPU terminal; config in dotfiles/ghostty
+brew "zellij"              # terminal multiplexer — persistent sessions that
+                            # survive Ghostty restarts/detach + reproducible
+                            # layouts. Config + dev layout in dotfiles/zellij.
+                            # (Reattach with `zj`; 2x2 workspace with `zjd`.)
 
 # --- AI coding agents --------------------------------------------------------
 # NONE on the host — by design. Claude Code, Codex, and Pi Harness are installed
@@ -71,9 +75,15 @@ cask "ghostty"             # native GPU terminal; config in dotfiles/ghostty
 # `cc` / `cx` / `pi` wrappers (devcontainer exec) — see zsh/agents.zsh.
 
 # --- Local LLM (fallback / transient only — NOT the primary driver) ----------
-cask "ollama-app"          # native menu-bar app + server + model manager.
-                            # (Formula `ollama` is CLI/server-only; the cask is
-                            # the native host experience requested.)
+brew "ollama"              # CLI + server (headless; no menu-bar app). Cleaner for
+                            # a terminal-first, fallback-only tool: start on demand
+                            # with `ollama serve` or `brew services start ollama`,
+                            # and stop the service to reclaim memory when idle.
+                            # `oll`/`olp`/`olr` aliases drive it. (Swap to
+                            # cask "ollama-app" if you want the native menu-bar app.)
+                            # To let in-container agents reach it via
+                            # host.docker.internal, run the server with
+                            # OLLAMA_HOST=0.0.0.0:11434.
                             # Heads-up: a 32b model is ~20GB resident in unified
                             # memory and competes with the ~16GB dev stack —
                             # local LLM memory is NOT free.
@@ -108,9 +118,6 @@ cask "font-jetbrains-mono-nerd-font"  # required by the Ghostty config
 # brew "k9s"                # k8s TUI
 # brew "helm"               # charts
 # brew "siderolabs/talos/talosctl"  # Talos Linux
-
-# --- Terminal multiplexer (persistent sessions across Ghostty restarts) ------
-# brew "zellij"            # modern multiplexer (or `tmux`)
 
 # --- API / HTTP poking against the Laravel backends --------------------------
 # brew "httpie"           # friendly HTTP client

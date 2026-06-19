@@ -1,0 +1,26 @@
+// ~/.config/zellij/layouts/dev.kdl — 2x2 dev workspace (stow package: zellij)
+// Launch:  zellij --layout dev      (alias: zjd)
+// Detach with Ctrl-o d; reattach later with `zellij attach <name>`.
+//
+//   ┌──────────────┬──────────────┐   host:      git, dcu / dcb, clone
+//   │ host         │ agent        │   container: dcs  (shell in the stack)
+//   ├──────────────┼──────────────┤   agent:     cc / cca / cx / pi
+//   │ container    │ logs         │   logs:      dcl / olp
+//   └──────────────┴──────────────┘
+//
+// Panes are plain named shells (no auto-run) so the layout is safe anywhere —
+// type the commands above once each pane is in the right project folder.
+layout {
+    tab name="dev" focus=true {
+        pane split_direction="vertical" {
+            pane split_direction="horizontal" {
+                pane name="host" focus=true
+                pane name="container"
+            }
+            pane split_direction="horizontal" {
+                pane name="agent"
+                pane name="logs"
+            }
+        }
+    }
+}

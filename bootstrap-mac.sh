@@ -22,7 +22,7 @@ REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 STOW_DIR="$REPO_DIR/.dotfiles"
 # macOS host packages. zsh is the wired-up default; fish + nushell are alt
 # drivers with the same host wiring. (vim stays container-only.)
-STOW_PACKAGES=(zsh ghostty starship fish nushell)
+STOW_PACKAGES=(zsh ghostty starship fish nushell zellij)
 
 # --- pretty logging ----------------------------------------------------------
 info()  { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
