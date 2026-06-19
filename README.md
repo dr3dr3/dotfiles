@@ -25,7 +25,7 @@ cd ~/Code/dr3dr3/dotfiles && ./bootstrap-mac.sh
 It is idempotent (safe to re-run) and will:
 
 1. Install **Homebrew** (if missing) and everything in [`Brewfile`](Brewfile)
-2. Stow the macOS packages (`zsh ghostty starship fish nushell`) into `~`
+2. Stow the macOS packages (`zsh ghostty starship fish nushell zellij`) into `~`
 3. Set up host **Node via fnm** + install `@devcontainers/cli` (npm-only)
 4. Create `~/Code` (repo layout) and `~/host-share` (mounted into containers)
 5. Print the one-time manual steps (1Password SSH agent, default shell, …)
@@ -87,10 +87,11 @@ Dotfile configs live in `.dotfiles/` and are organised as [GNU Stow](https://www
   fish/        → ~/.config/fish/             (Fish shell — host + containers)
   nushell/     → ~/.config/nushell/          (Nushell — host + containers)
   starship/    → ~/.config/starship.toml     (Starship prompt — shared)
+  zellij/      → ~/.config/zellij/            (multiplexer config + dev layout)
   vim/         → ~/.vimrc                     (Vim config)
 ```
 
-On the **macOS host**, `bootstrap-mac.sh` stows `zsh ghostty starship fish nushell`,
+On the **macOS host**, `bootstrap-mac.sh` stows `zsh ghostty starship fish nushell zellij`,
 and Fish + Nushell carry the same host wiring as zsh (fnm, 1Password agent,
 fzf/zoxide, the devcontainer/agent aliases). In **containers**, `install.sh`
 stows `fish nushell starship vim`.

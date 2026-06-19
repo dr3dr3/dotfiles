@@ -57,6 +57,11 @@ alias dcl = docker compose logs -f
 alias dps = docker ps
 alias lzd = lazydocker
 
+# zellij (persistent sessions + layouts)
+alias zj = zellij attach --create main
+alias zjd = zellij --layout dev
+alias zjl = zellij list-sessions
+
 # AI agents — run inside the project container (nothing on the host)
 def --wrapped ccp [...rest] { devcontainer exec --workspace-folder . env TERM=xterm-256color claude ...$rest }
 def --wrapped cca [...rest] { devcontainer exec --workspace-folder . env TERM=xterm-256color $"CLAUDE_CONFIG_DIR=($env.HOME)/.claude-corp" claude ...$rest }

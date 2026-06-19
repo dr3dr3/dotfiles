@@ -78,6 +78,11 @@ abbr -a -- dcl 'docker compose logs -f'
 abbr -a -- dps 'docker ps'
 abbr -a -- lzd 'lazydocker'
 
+# zellij (persistent sessions + layouts)
+abbr -a -- zj 'zellij attach --create main'
+abbr -a -- zjd 'zellij --layout dev'
+abbr -a -- zjl 'zellij list-sessions'
+
 function dcs --description 'shell into the devcontainer (TERM-safe)'
     devcontainer exec --workspace-folder . env TERM=xterm-256color bash
 end
