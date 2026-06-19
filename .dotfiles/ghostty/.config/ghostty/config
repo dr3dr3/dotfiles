@@ -1,6 +1,8 @@
 # =============================================================================
 # ~/.config/ghostty/config — managed by dotfiles (stow package: ghostty)
 # Reload in-app with: Cmd+Shift+,    Docs: https://ghostty.org/docs/config
+# NOTE: Ghostty does NOT support trailing/inline comments — everything after the
+# `=` is the value. Keep comments on their own lines above each directive.
 # =============================================================================
 
 # --- Shell -------------------------------------------------------------------
@@ -16,7 +18,7 @@ font-thicken = true
 
 # --- Theme / appearance ------------------------------------------------------
 # Follow macOS appearance automatically (light in the day, dark at night).
-theme = light:catppuccin-latte,dark:catppuccin-mocha
+theme = light:Catppuccin Latte,dark:Catppuccin Mocha
 background-opacity = 0.96
 background-blur-radius = 20
 window-padding-x = 12
@@ -26,12 +28,15 @@ cursor-style = block
 mouse-hide-while-typing = true
 # Dim the inactive split so the focused pane (e.g. the running agent) is obvious.
 unfocused-split-opacity = 0.80
-resize-overlay = never                    # no distracting size popups while splitting
+# no distracting size popups while splitting
+resize-overlay = never
 
 # --- macOS behaviour ---------------------------------------------------------
-macos-option-as-alt = true                # left/right Option send Esc+ for shells
+# left/right Option send Esc+ for shells
+macos-option-as-alt = true
 macos-titlebar-style = transparent
-window-save-state = always                # restore windows/tabs after quit
+# restore windows/tabs after quit
+window-save-state = always
 quit-after-last-window-closed = true
 clipboard-read = allow
 clipboard-write = allow
@@ -49,7 +54,8 @@ desktop-notifications = true
 auto-update = off
 
 # --- Scrollback --------------------------------------------------------------
-scrollback-limit = 10000000               # ~10MB; agent output gets long
+# ~10MB; agent output gets long
+scrollback-limit = 10000000
 
 # --- Keybindings -------------------------------------------------------------
 # Splits + tabs for juggling devcontainer exec / agent / ollama panes.
@@ -60,8 +66,10 @@ keybind = cmd+t=new_tab
 keybind = cmd+left_bracket=goto_split:previous
 keybind = cmd+right_bracket=goto_split:next
 keybind = cmd+enter=toggle_split_zoom
-keybind = cmd+k=clear_screen               # clear scrollback in the focused pane
-keybind = cmd+shift+p=toggle_command_palette  # fuzzy action search (recent Ghostty)
+# clear scrollback in the focused pane
+keybind = cmd+k=clear_screen
+# fuzzy action search (recent Ghostty)
+keybind = cmd+shift+p=toggle_command_palette
 
 # Global drop-down "quick terminal" — summon a scratch shell from anywhere
 # (run a quick `op`/`olp`/`gh` command without leaving your editor) and dismiss.

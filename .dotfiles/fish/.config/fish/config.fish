@@ -111,6 +111,10 @@ abbr -a -- olp 'ollama ps'
 abbr -a -- olr 'ollama run'
 abbr -a -- olu 'ollama pull'
 abbr -a -- olrm 'ollama rm'
+# Server lifecycle (brew formula): o-up binds 0.0.0.0:11434 so in-container
+# agents reach it via host.docker.internal; o-down stops it and frees memory.
+abbr -a -- o-up 'OLLAMA_HOST=0.0.0.0:11434 brew services restart ollama'
+abbr -a -- o-down 'brew services stop ollama'
 
 # ── JIT editor — always the multi-root workspace, never `code .` ─────────────
 abbr -a -- roe 'code roe-local-dev.code-workspace'

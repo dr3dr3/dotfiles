@@ -75,6 +75,10 @@ alias olp = ollama ps
 def --wrapped olr [...rest] { ollama run ...$rest }
 def --wrapped olu [...rest] { ollama pull ...$rest }
 def --wrapped olrm [...rest] { ollama rm ...$rest }
+# Server lifecycle (brew formula): o-up binds 0.0.0.0:11434 so in-container
+# agents reach it via host.docker.internal; o-down stops it and frees memory.
+def o-up [] { with-env {OLLAMA_HOST: "0.0.0.0:11434"} { brew services restart ollama } }
+alias o-down = brew services stop ollama
 
 # JIT editor — always the multi-root workspace, never `code .`
 alias roe = code roe-local-dev.code-workspace

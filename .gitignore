@@ -1,0 +1,4 @@
+# fish writes machine-local universal variables here. Because the fish package is
+# stowed as a folded symlink, fish writes this file straight into the repo on every
+# run — it's host state, never config, so keep it out of version control.
+.dotfiles/fish/.config/fish/fish_variables

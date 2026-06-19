@@ -51,6 +51,10 @@ alias olp='ollama ps'        # what's resident in memory right now
 alias olr='ollama run'       # olr qwen2.5-coder:32b
 alias olu='ollama pull'      # olu qwen2.5-coder:32b
 alias olrm='ollama rm'       # free unified memory: olrm <model>
+# Server lifecycle (brew formula). o-up binds 0.0.0.0:11434 so in-container
+# agents reach it via host.docker.internal; o-down stops it and frees memory.
+alias o-up='OLLAMA_HOST=0.0.0.0:11434 brew services restart ollama'
+alias o-down='brew services stop ollama'
 
 # --- git (carried over from the fish config, zsh-flavoured) ------------------
 alias ga='git add .'
