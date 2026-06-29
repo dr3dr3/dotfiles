@@ -53,7 +53,10 @@ alias olu='ollama pull'      # olu qwen2.5-coder:32b
 alias olrm='ollama rm'       # free unified memory: olrm <model>
 # Server lifecycle (brew formula). o-up binds 0.0.0.0:11434 so in-container
 # agents reach it via host.docker.internal; o-down stops it and frees memory.
-alias o-up='OLLAMA_HOST=0.0.0.0:11434 brew services restart ollama'
+# NB: brew generates the LaunchAgent plist from the formula and ignores a
+# shell-exported OLLAMA_HOST, so we set it via launchctl (the launchd-spawned
+# server inherits it). Not persistent across reboot — rerun o-up after a boot.
+alias o-up='launchctl setenv OLLAMA_HOST 0.0.0.0:11434 && brew services restart ollama'
 alias o-down='brew services stop ollama'
 
 # --- git (carried over from the fish config, zsh-flavoured) ------------------
