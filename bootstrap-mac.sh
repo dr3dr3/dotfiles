@@ -53,10 +53,17 @@ ok "Brewfile applied."
 # --- 3. Dotfiles via GNU Stow ------------------------------------------------
 info "Stowing dotfiles: ${STOW_PACKAGES[*]}"
 cd "$STOW_DIR"
-# --adopt first absorbs any pre-existing files into the repo, then re-link
-# cleanly so a second run is a no-op rather than a conflict.
-stow --adopt --target "$HOME" "${STOW_PACKAGES[@]}"
-stow --restow --target "$HOME" "${STOW_PACKAGES[@]}"
+# Re-link idempotently. Plain --restow is a no-op on re-runs (targets are already
+# our own symlinks). If a NON-stow file pre-exists at a target — e.g. an app wrote
+# a default config before bootstrap ran — stow refuses rather than overwriting it.
+# We deliberately do NOT use --adopt: adopt would move that stray file INTO the repo,
+# silently clobbering the tracked version. Surface the conflict and let the user decide.
+if ! stow --restow --target "$HOME" "${STOW_PACKAGES[@]}"; then
+  warn "Stow conflict: real (non-symlink) files already exist at one or more targets above."
+  warn "Back them up and remove them, then re-run ./bootstrap-mac.sh."
+  warn "(To intentionally absorb a stray file into the repo: stow --adopt --target \"$HOME\" <pkg>, then review 'git status'.)"
+  exit 1
+fi
 cd "$REPO_DIR"
 ok "Dotfiles linked into ~."
 

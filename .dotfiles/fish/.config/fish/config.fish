@@ -111,6 +111,13 @@ abbr -a -- olp 'ollama ps'
 abbr -a -- olr 'ollama run'
 abbr -a -- olu 'ollama pull'
 abbr -a -- olrm 'ollama rm'
+# Server lifecycle (brew formula): o-up binds 0.0.0.0:11434 so in-container
+# agents reach it via host.docker.internal; o-down stops it and frees memory.
+# NB: brew generates the LaunchAgent plist from the formula and ignores a
+# shell-exported OLLAMA_HOST, so we set it via launchctl (the launchd-spawned
+# server inherits it). Not persistent across reboot — rerun o-up after a boot.
+abbr -a -- o-up 'launchctl setenv OLLAMA_HOST 0.0.0.0:11434; and brew services restart ollama'
+abbr -a -- o-down 'brew services stop ollama'
 
 # ── JIT editor — always the multi-root workspace, never `code .` ─────────────
 abbr -a -- roe 'code roe-local-dev.code-workspace'
