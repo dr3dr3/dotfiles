@@ -2,3 +2,8 @@
 # stowed as a folded symlink, fish writes this file straight into the repo on every
 # run — it's host state, never config, so keep it out of version control.
 .dotfiles/fish/.config/fish/fish_variables
+
+# nushell writes command history straight into the stowed config dir on every
+# run — host state, never config, same rationale as fish_variables above.
+.dotfiles/nushell/.config/nushell/history.txt
+.dotfiles/nushell/.config/nushell/history.sqlite3
