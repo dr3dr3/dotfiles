@@ -142,16 +142,34 @@ cask "unsloth"             # Unsloth Desktop — GUI for Unsloth Studio: local
                            # Self-updating (auto_updates), so brew neither
                            # fights it nor nags in `brew outdated` — unlike the
                            # claude-code cask above.
-                           # The pip/CLI route was passed over deliberately: it
-                           # needs Python >=3.11,<3.14 in a uv/venv, and this
-                           # host's python3 is 3.14.x — too new. If the CLI is
-                           # ever wanted, pin python + uv in a PER-PROJECT
-                           # mise.toml, not globally. See CHEATSHEET › mise.
-                           # Heads-up: fine-tuning is far heavier than the
-                           # ollama note above — plan to stop the containers
-                           # and the ollama service before a training run.
-                           # Beta (0.1.x); the cask itself was days old when
-                           # added, so expect churn.
+                           #
+                           # NOT self-contained. The .app is a 59MB THIN
+                           # INSTALLER (Resources = icon.icns + install.sh); on
+                           # first launch it provisions its OWN Python 3.13
+                           # venv via uv under ~/.unsloth, plus llama.cpp and
+                           # whisper.cpp. So it needs no Python from us and is
+                           # unaffected by this host's python3 being 3.14.x
+                           # (Unsloth requires >=3.11,<3.14) — it simply brings
+                           # a compliant interpreter of its own. Do NOT add
+                           # python to the mise config on its account.
+                           # It also drops a CLI at ~/.local/bin/unsloth, which
+                           # is on PATH.
+                           #
+                           # UNINSTALL SURFACE — ~2.9GB, none of it brew-owned.
+                           # `brew uninstall --cask unsloth` removes the .app
+                           # and leaves ALL of the following behind:
+                           #   ~/.unsloth                          2.5G
+                           #   ~/.cache/huggingface                322M (models)
+                           #   ~/Library/WebKit/ai.unsloth.studio  1.2M
+                           #   ~/Library/Application Support/ai.unsloth.studio
+                           #   ~/.local/bin/unsloth
+                           # (~/.cache/huggingface is shared with any other HF
+                           # tooling — check before deleting that one.)
+                           #
+                           # Memory: fine-tuning is heavier than the ollama note
+                           # above. This host has 64GB unified, so there is real
+                           # headroom, but stop containers for large runs.
+                           # Beta (0.1.x); cask was days old when added.
 
 # --- Secrets (1Password — do NOT hand-roll key injection) --------------------
 # The host runs the 1Password app, which exposes the SSH agent + biometric CLI.
