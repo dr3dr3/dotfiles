@@ -1,0 +1,24 @@
+# =============================================================================
+# .gitattributes — line-ending policy
+#
+# Every tracked file in this repo is text, and all of it is LF.
+#   text=auto  → git detects text and normalises it to LF in the index on commit
+#   eol=lf     → git checks it out as LF in the working tree, on every platform
+#
+# Why this exists. CRLF drifted in repeatedly and invisibly:
+#   * config.fish was wholly CRLF while the rest of the repo was LF, and edits
+#     left it mixed                                          (fixed in 9839609)
+#   * README.md picked up mixed endings three separate times in one branch
+#     series — twice merged before anyone noticed             (fixed in 2ed5141)
+#   * starship.toml was the last holdout                      (fixed in #8)
+#
+# Mixed endings don't show up in a normal diff, and they turn a one-line edit
+# into a whole-file rewrite that buries the real change. Cheaper to prevent.
+#
+# Verified at the time of adding: no binary files are tracked. If one is ever
+# added, exempt it explicitly so git never rewrites its bytes, e.g.:
+#     *.png binary
+#     *.icns binary
+# =============================================================================
+
+* text=auto eol=lf
