@@ -103,6 +103,42 @@ stows `fish nushell starship vim`.
 
 To apply a single package manually: `cd .dotfiles && stow --target "$HOME" fish`
 
+### ⚠️ Folded symlinks: tools can write into this repo
+
+Stow **folds** directories wherever it can — `~/.config/fish` is a single
+symlink to `.dotfiles/fish/.config/fish/`, not a real directory containing
+per-file symlinks. That keeps `~` tidy, but it means **anything writing into a
+stowed config directory is writing into this repo**, where it surfaces as an
+uncommitted change or an untracked file.
+
+That has caught us three times so far:
+
+| What wrote it | What landed in the repo |
+|---|---|
+| fish, on every run | `fish_variables` — machine-local universal variables |
+| OrbStack, on install | `fish/completions/*.fish` — symlinks to absolute `/Applications/OrbStack.app/…` paths |
+| Unsloth's `install.sh` | a `.zshrc` PATH append, plus `fish/conf.d/unsloth.fish` containing a hardcoded `/Users/<name>/…` path |
+
+The Unsloth case is the instructive one: committing it would have pushed a
+hardcoded username into a repo whose whole point is being portable to a fresh
+machine.
+
+**Habit: run `git status` here after installing anything that offers shell
+integration.** When something appears, decide which of two things it is:
+
+- **Host state** — history, caches, machine-local variables, generated
+  completions. Add it to `.gitignore` with a comment explaining why, alongside
+  the existing entries.
+- **Config you actually want** — a PATH entry, an env var. Don't keep the
+  installer's version: re-declare it properly in the owning package, using
+  `$HOME` rather than an absolute path, and mirror it across zsh/fish/nushell so
+  the three stay in parity. The `~/.local/bin` block in
+  `zsh/.config/zsh/env.zsh` is the worked example.
+
+A related trap, same root cause: a tool that *regenerates* its config on every
+start can feed on its own output. See the `mise activate nu` note in
+`nushell/config.nu` for why nushell deliberately avoids that pattern.
+
 ## 🐳 Target Environment
 
 - **Base Image**: Ubuntu 24.04
