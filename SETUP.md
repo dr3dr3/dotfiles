@@ -65,7 +65,8 @@ exec zsh
 3. **Ghostty** — set it as your default terminal (the config is already linked).
 4. *(optional)* Background Homebrew updates:
    ```bash
-   brew tap homebrew/autoupdate
+   brew trust domt4/autoupdate   # tap is declared in the Brewfile; brew
+                                 # won't load the command until it is trusted
    brew autoupdate start 86400 --upgrade --cleanup --enable-notification
    ```
 5. *(optional)* **Shells** — zsh is the default and the most wired-up, but Fish

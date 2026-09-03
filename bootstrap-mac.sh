@@ -124,7 +124,8 @@ cat <<'EOF'
   Stay current (optional, recommended)
     • Run `./update-mac.sh` weekly (aliased to `upd`), or automate background
       Homebrew upgrades:
-        brew tap homebrew/autoupdate
+        brew trust domt4/autoupdate   # tap comes from the Brewfile; brew
+                                      # refuses to load the command untrusted
         brew autoupdate start 86400 --upgrade --cleanup --enable-notification
     • Full command + maintenance reference: docs/CHEATSHEET.md
 ────────────────────────────────────────────────────────────────────────────

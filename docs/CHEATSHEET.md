@@ -176,10 +176,17 @@ versions → **`osv-scanner`** over your repos → list macOS updates.
 ### Automate background Homebrew upgrades (set once)
 
 ```bash
-brew tap homebrew/autoupdate
+brew trust domt4/autoupdate   # the tap is declared in the Brewfile; brew
+                              # refuses to load the command until it is trusted
 brew autoupdate start 86400 --upgrade --cleanup --enable-notification
 brew autoupdate status      # verify the launchd job
 ```
+
+> The launchd job uses `StartInterval`, which does **not** fire while the Mac is
+> asleep and does not aggressively catch up afterwards — so "daily" can silently
+> stretch to a week or more. It is a drift-reducer, not a guarantee; keep running
+> `upd` yourself. Check the last real run with:
+> `ls -l ~/Library/Logs/com.github.domt4.homebrew-autoupdate/*.out`
 
 ### Vulnerability scanning
 

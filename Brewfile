@@ -25,6 +25,11 @@
 
 # --- Taps --------------------------------------------------------------------
 tap "dmno-dev/tap"          # varlock (secrets/env loader)
+tap "domt4/autoupdate"      # `brew autoupdate` launchd job (background upgrades).
+                            # Declared so `brew bundle cleanup --force` /
+                            # `update-mac.sh --prune` don't untap it and silently
+                            # kill the job. Needs `brew trust domt4/autoupdate`
+                            # before the command will load — see bootstrap-mac.sh.
 
 # --- Core CLI ----------------------------------------------------------------
 brew "git"                  # newer than the macOS system git
