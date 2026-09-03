@@ -374,6 +374,22 @@ git pull
 cd .dotfiles && stow --restow --target "$HOME" zsh ghostty starship fish nushell zellij mise
 ```
 
+> ⚠️ **Nushell on macOS needs more than `stow`.** Nushell reads its config from
+> the platform-native dir — `~/Library/Application Support/nushell/` — not
+> `~/.config/nushell/`, which is where the stow package puts it (correct for
+> Linux/containers). `bootstrap-mac.sh` step 3a symlinks `config.nu` and
+> `env.nu` from the native dir into the stowed package to bridge that.
+> **Failure mode is silent:** `nu` starts with defaults, every alias/def/env in
+> `config.nu` is inert, and there is no error. If nushell looks unconfigured:
+>
+> ```bash
+> nu -c '$nu.config-path'   # where nushell actually looks
+> nu -e 'scope commands | where name == "brewdump" | length | print; exit'
+> ```
+>
+> That must print `1`. Use `-e`, **not** `-c` — `nu -c` skips config files
+> entirely, so it will report `0` even when everything is wired correctly.
+
 Reload without restarting: `exec zsh` (shell) · `Cmd+Shift+,` (Ghostty).
 
 > First time on a new Mac? See **[SETUP.md](../SETUP.md)** for the full

@@ -86,6 +86,10 @@ Dotfile configs live in `.dotfiles/` and are organised as [GNU Stow](https://www
   ghostty/     → ~/.config/ghostty/config    (macOS terminal)
   fish/        → ~/.config/fish/             (Fish shell — host + containers)
   nushell/     → ~/.config/nushell/          (Nushell — host + containers)
+               ↳ macOS ONLY: nushell reads ~/Library/Application Support/
+                 nushell/, so bootstrap-mac.sh symlinks config.nu + env.nu
+                 from there. Without that bridge the config silently never
+                 loads on macOS. Linux/containers use ~/.config/nushell.
   starship/    → ~/.config/starship.toml     (Starship prompt — shared)
   zellij/      → ~/.config/zellij/            (multiplexer config + dev layout)
   mise/        → ~/.config/mise/config.toml   (host tool versions — Brewfile peer)
