@@ -5,8 +5,13 @@
 # fish writes machine-local universal variables here on every run.
 .dotfiles/fish/.config/fish/fish_variables
 
-# nushell writes command history straight into the stowed config dir on every
-# run — same rationale as fish_variables above.
+# nushell history. Kept as a precaution only — on macOS nushell writes history
+# to its DATA dir ("~/Library/Application Support/nushell/history.txt"), well
+# outside this repo, so neither of these has ever been created here. They would
+# apply if nushell's data dir were ever colocated with its config dir (as on
+# Linux under XDG, where the container install puts both under ~/.config and
+# ~/.local/share respectively). Harmless to keep; do not read them as evidence
+# that nushell writes into the stowed dir.
 .dotfiles/nushell/.config/nushell/history.txt
 .dotfiles/nushell/.config/nushell/history.sqlite3
 

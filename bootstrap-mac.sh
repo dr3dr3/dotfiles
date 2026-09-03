@@ -69,6 +69,36 @@ fi
 cd "$REPO_DIR"
 ok "Dotfiles linked into ~."
 
+# --- 3a. Nushell: bridge macOS's native config dir to the stowed package -----
+# Nushell (>= ~0.101, confirmed on 0.115.1) uses the PLATFORM-native config dir
+# on macOS — ~/Library/Application Support/nushell — not ~/.config/nushell.
+# The `nushell` stow package targets ~/.config/nushell because that IS correct
+# on Linux, where install.sh stows the same package into the dev containers.
+# Without this bridge the stowed config is silently never loaded on macOS:
+# `nu` starts with defaults and every alias/def/env in config.nu is inert, with
+# no error to hint at it. (That was the state of this host until 2026-09-03.)
+# Symlink rather than move the package, so the Linux/container path stays right.
+NU_MAC_DIR="$HOME/Library/Application Support/nushell"
+info "Bridging nushell config: $NU_MAC_DIR -> stowed package"
+mkdir -p "$NU_MAC_DIR"
+for f in config.nu env.nu; do
+  src="$STOW_DIR/nushell/.config/nushell/$f"
+  dst="$NU_MAC_DIR/$f"
+  if [[ -e "$dst" && ! -L "$dst" ]]; then
+    warn "$dst is a real file, not a symlink — back it up and remove it, then re-run."
+  else
+    ln -sfn "$src" "$dst"
+  fi
+done
+# Verify, rather than assume: a plain `nu` must now see a def from config.nu.
+if command -v nu >/dev/null 2>&1; then
+  if [[ "$(nu -c 'scope commands | where name == "brewdump" | length' 2>/dev/null)" == "1" ]]; then
+    ok "Nushell loads the repo config."
+  else
+    warn "Nushell still not loading the repo config — check: nu -c '\$nu.config-path'"
+  fi
+fi
+
 # --- 3b. Host folders --------------------------------------------------------
 # ~/Code/<org-or-user>/<repo> — canonical layout for all cloned repos
 #   (e.g. ~/Code/dr3dr3/dotfiles, ~/Code/rock-of-eye/ai-context).
