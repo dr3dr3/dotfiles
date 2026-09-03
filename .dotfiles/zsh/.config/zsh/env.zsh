@@ -7,11 +7,18 @@
 
 # --- Ollama ------------------------------------------------------------------
 # Bind the host Ollama server to all interfaces so in-container agents can reach
-# it via host.docker.internal:11434 (OrbStack maps it). This applies when you
-# start the server from a shell — e.g. `ollama serve` in a pane.
-# NOTE: the launchd-managed `brew services` server does NOT inherit this shell
-# env; for that route set it on the service instead:
-#   OLLAMA_HOST=0.0.0.0:11434 brew services restart ollama
+# it via host.docker.internal:11434 (OrbStack maps it). This export applies ONLY
+# when you start the server from a shell — e.g. `ollama serve` in a pane.
+#
+# For the launchd-managed (`brew services`) server this export does nothing, and
+# neither does prefixing the var to `brew services restart` — brew services does
+# not propagate arbitrary shell env into the plist it generates. Verified
+# 2026-09-03: the plist carried only the formula's own OLLAMA_FLASH_ATTENTION /
+# OLLAMA_KV_CACHE_TYPE, and the running server was bound to 127.0.0.1 (i.e.
+# unreachable from containers). Use the `o-up` alias in aliases.zsh instead — it
+# sets the var on the launchd session before restarting the service.
+# That is NOT persistent across reboot: rerun `o-up` after a boot, and confirm
+# the bind address with:  lsof -nP -iTCP -sTCP:LISTEN | grep 11434
 # See SETUP.md ("Local LLM — Ollama").
 export OLLAMA_HOST=0.0.0.0:11434
 
