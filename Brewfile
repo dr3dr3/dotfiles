@@ -14,13 +14,15 @@
 #
 # Validated against formulae.brew.sh / official repos (June 2026).
 # The host is a LAUNCHER, not a workstation: it boots containers, holds secrets,
-# and runs the engine. AI coding agents (Claude Code, Codex, Pi Harness) are
-# deliberately NOT installed here — they run *inside* the dev containers for
-# isolation/safety, provisioned by the dotai repo (github.com/dr3dr3/dotai).
+# and runs the engine. AI coding agents run *inside* the dev containers by
+# default (provisioned by dotai, github.com/dr3dr3/dotai) so agent activity on
+# project code stays sandboxed — with a deliberate exception for host copies of
+# Claude Code / Codex / herdr, for the times there is no container to work in.
+# See the "AI coding agents" section below.
 #
-# NOTE: @devcontainers/cli is intentionally not here either — it's npm-only and
-#       installed in bootstrap-mac.sh (it's the one host tool needed to boot the
-#       containers the agents live in).
+# NOTE: @devcontainers/cli is intentionally not declared here either — it is
+#       npm-only and installed in bootstrap-mac.sh (the one host tool needed to
+#       boot the containers the agents normally live in).
 # =============================================================================
 
 # --- Taps --------------------------------------------------------------------
@@ -83,11 +85,32 @@ brew "zellij"              # terminal multiplexer — persistent sessions that
                             # layouts. Config + dev layout in dotfiles/zellij.
                             # (Reattach with `zj`; 2x2 workspace with `zjd`.)
 
-# --- AI coding agents --------------------------------------------------------
-# NONE on the host — by design. Claude Code, Codex, and Pi Harness are installed
-# *inside* the dev containers via dotai (github.com/dr3dr3/dotai) so untrusted
-# agent activity is sandboxed away from the host. Launch them with the host-side
-# `cc` / `cx` / `pi` wrappers (devcontainer exec) — see zsh/agents.zsh.
+# --- AI coding agents (host copies — deliberate exception) -------------------
+# The default is still container-first: agents are installed *inside* the dev
+# containers by dotai (github.com/dr3dr3/dotai), so agent activity on project
+# code stays sandboxed. Launch those with `cc` / `cx` / `pi` (devcontainer
+# exec) — see zsh/agents.zsh.
+# The host copies below are an exception (2026-09-03) for the occasions when
+# there is no container to work in: this dotfiles repo itself, host triage, a
+# quick one-off. No command collision — the bare names are the host binaries,
+# the `cc`/`cx` wrappers still reach into the container.
+cask "claude-code"         # Claude Code CLI — installs the `claude` binary.
+                           # Heads-up: Claude Code also self-updates in place
+                           # and this cask declares no `auto_updates`, so the
+                           # brew-pinned version drifts from what's actually
+                           # installed and shows up in `brew outdated`.
+                           # Cosmetic — don't chase it. (`claude-code@latest`
+                           # tracks releases faster with far less install
+                           # volume; stable chosen deliberately.)
+cask "codex"               # OpenAI Codex CLI — `codex` binary plus bash/zsh/
+                           # fish completions (github.com/openai/codex).
+                           # NOT `codex-app`: discontinued upstream, brew
+                           # disables it 2027-07-12.
+brew "herdr"               # agent multiplexer for the two above (herdr.dev).
+                           # The one daemon declared in this file: start on
+                           # demand with `herdr server`, or as a service via
+                           # `brew services start herdr`. Stop the service to
+                           # reclaim memory when idle.
 
 # --- Local LLM (fallback / transient only — NOT the primary driver) ----------
 brew "ollama"              # CLI + server (headless; no menu-bar app). Cleaner for

@@ -9,8 +9,9 @@
 #   4. set up host Node via mise + install @devcontainers/cli (npm-only)
 #   5. print the manual follow-up steps that can't be automated
 #
-# It deliberately does NOT install AI agent CLIs on the host — those run inside
-# the dev containers (provisioned by dotai). This box only boots them.
+# Project agent work happens inside the dev containers (provisioned by dotai).
+# The Brewfile additionally installs host copies of Claude Code / Codex / herdr
+# for the times there is no container to work in.
 #
 # Usage:
 #   git clone https://github.com/dr3dr3/dotfiles.git ~/Code/dr3dr3/dotfiles
@@ -104,7 +105,7 @@ cat <<'EOF'
       "Integrate with 1Password CLI" (biometric unlock for `op`).
     • New shells then pick up SSH_AUTH_SOCK automatically (see ~/.zshrc).
 
-  AI agents (run inside the containers, not here)
+  AI agents (host copies come from the Brewfile; per-project ones live in the container)
     • Provision them per project with dotai:
         git clone https://github.com/dr3dr3/dotai.git /workspace/.ai/dotai
         bash /workspace/.ai/dotai/setup.sh      # inside the devcontainer

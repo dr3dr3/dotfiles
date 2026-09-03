@@ -100,22 +100,34 @@ terminfo, so `clear`, `tput`, and TUIs error inside them. Two fixes:
 
 ---
 
-## 🤖 AI agents — in containers, launched from the host
+## 🤖 AI agents — containers by default, host copies as an exception
 
-Agents do **not** run on the host (isolation/safety). They're installed inside
-each project's dev container by [dotai](https://github.com/dr3dr3/dotai); the
-host wrappers just `devcontainer exec` into the container.
+Project work runs the agents **inside** the project's dev container, installed
+by [dotai](https://github.com/dr3dr3/dotai); the `cc`/`cca`/`cx`/`pi` wrappers
+just `devcontainer exec` into it. That keeps agent activity on project code
+sandboxed.
+
+Host copies of `claude`, `codex` and `herdr` are also installed (declared in
+the [`Brewfile`](../Brewfile)) for the times there is no container to work in —
+this dotfiles repo itself, host triage, a quick one-off. **The names don't
+collide:** bare `claude`/`codex` are the host binaries, the wrappers are the
+container ones.
 
 ```bash
 # one-time per project, from inside the container (dcs):
 git clone https://github.com/dr3dr3/dotai.git /workspace/.ai/dotai
 bash /workspace/.ai/dotai/setup.sh          # installs Claude/Codex/Pi + skills
 
-# then, from the host, in the project folder:
+# then, from the host, in the project folder — CONTAINER agents:
 cc           # Claude Code (personal) in the container
 cca          # Claude Code (corporate-API profile)
 cx           # Codex
 pi           # Pi Harness (reaches host Ollama via host.docker.internal:11434)
+
+# HOST agents (no container needed):
+claude       # host Claude Code
+codex        # host Codex
+herdr        # agent multiplexer — `herdr server` to start it
 ```
 
 ## 🔐 Secrets — 1Password (host) → op/varlock (container)
@@ -199,8 +211,12 @@ osv-scanner scan --recursive ~/Code           # or set WORKSPACE_DIR for `upd`
 
 - **1Password Watchtower** flags breached/weak/reused credentials — check it.
 - **macOS patches:** `softwareupdate --install --all --restart`.
-- Self-updating (no action needed): Claude Code (native installer), OrbStack,
-  1Password, Ghostty's binary via `brew upgrade --cask`.
+- Self-updating (no action needed): OrbStack, 1Password, Ghostty's binary via
+  `brew upgrade --cask`.
+- **Claude Code is a special case:** now declared as the `claude-code` cask, but
+  it *also* self-updates in place. The cask sets no `auto_updates`, so brew's
+  pinned version drifts from what's installed and it lingers in `brew outdated`.
+  Cosmetic — leave it. `brew upgrade --cask claude-code` just re-syncs the pin.
 
 ### Editing the package set (add / remove software)
 

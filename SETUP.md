@@ -3,7 +3,9 @@
 First-run guide for a fresh macOS (Apple Silicon) machine. The host is a
 terminal-first **launcher**: it boots dev containers, holds secrets, and runs
 the engine — **AI agents run inside the containers** (via
-[dotai](https://github.com/dr3dr3/dotai)), never on the host.
+[dotai](https://github.com/dr3dr3/dotai)) for project work. Host copies of
+Claude Code / Codex / herdr are installed as well, for the times there is no
+container to work in (this dotfiles repo, host triage, a quick one-off).
 
 - Daily commands once you're set up: **[docs/CHEATSHEET.md](docs/CHEATSHEET.md)**
 - What gets installed: **[Brewfile](Brewfile)** · **[bootstrap-mac.sh](bootstrap-mac.sh)**
