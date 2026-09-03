@@ -374,6 +374,12 @@ git pull
 cd .dotfiles && stow --restow --target "$HOME" zsh ghostty starship fish nushell zellij mise
 ```
 
+> **After installing any app with shell integration, run `git status` here.**
+> The stow packages are folded symlinks, so installers can write straight into
+> this repo — it has happened three times (fish, OrbStack, Unsloth). See
+> [README › Folded symlinks](../README.md#-folded-symlinks-tools-can-write-into-this-repo)
+> for the triage rule.
+
 > ⚠️ **Nushell on macOS needs more than `stow`.** Nushell reads its config from
 > the platform-native dir — `~/Library/Application Support/nushell/` — not
 > `~/.config/nushell/`, which is where the stow package puts it (correct for
