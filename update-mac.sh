@@ -1,12 +1,18 @@
 #!/usr/bin/env bash
 # =============================================================================
-# update-mac.sh — keep the host current, lean, and audited for CVEs.
+# update-mac.sh — keep the host current, lean, audited, and CORRECT.
 #
 # Run weekly (manually `upd`, or scheduled — see docs/CHEATSHEET.md › Maintenance).
 # Idempotent and read-mostly: nothing here removes packages without --prune.
 #
+# Steps 1-7 update and report. Step 8 runs ./doctor-mac.sh, which asserts the
+# live host actually matches what this repo declares — a different question from
+# "is everything up to date", and the one that has caught the real problems here
+# (a shell config that never loaded, a service on the wrong interface, an app
+# installer editing a tracked file). Exits non-zero if doctor reports failures.
+#
 # Usage:
-#   ./update-mac.sh           # update everything + report drift/CVEs
+#   ./update-mac.sh           # update everything + report drift/CVEs + assert
 #   ./update-mac.sh --prune    # also remove anything not in the Brewfile
 # =============================================================================
 set -euo pipefail
@@ -81,5 +87,23 @@ info "Checking macOS software updates…"
 softwareupdate --list 2>/dev/null || true
 echo "  (install with: softwareupdate --install --all --restart)"
 
+# --- 8. Doctor: does the machine actually match the repo? --------------------
+# Everything above updates and reports. This asserts. The failures that have
+# actually cost time here were silent — a config that never loaded, a service
+# on the wrong interface, an installer editing a tracked file — and none of them
+# surface in the steps above. Run last so its output is what you're left looking
+# at. Captured rather than allowed to abort (set -e is on) so the summary and
+# tip below still print.
+DOCTOR_STATUS=0
+if [[ -x "$REPO_DIR/doctor-mac.sh" ]]; then
+  "$REPO_DIR/doctor-mac.sh" || DOCTOR_STATUS=$?
+else
+  warn "doctor-mac.sh missing or not executable — skipping host assertions."
+fi
+
 ok "Maintenance pass complete."
 echo "Tip: also open 1Password ▸ Watchtower for breached/weak credentials."
+if [[ "$DOCTOR_STATUS" -ne 0 ]]; then
+  warn "doctor-mac.sh reported failures above: the host does not match this repo."
+  exit "$DOCTOR_STATUS"
+fi
