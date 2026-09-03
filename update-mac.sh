@@ -49,9 +49,12 @@ else
 fi
 
 # --- 4. Node toolchain (host CLI tooling only) -------------------------------
-if command -v fnm >/dev/null 2>&1; then
-  info "Updating global npm CLI tools…"
-  eval "$(fnm env)"
+if command -v mise >/dev/null 2>&1; then
+  info "Updating mise-managed runtimes + global npm CLI tools…"
+  # Re-resolves node@lts to the newest LTS patch and installs it.
+  mise upgrade || warn "mise upgrade hit an issue (non-fatal)."
+  # Shims, not `activate` — this script is non-interactive (see bootstrap-mac.sh).
+  export PATH="${XDG_DATA_HOME:-$HOME/.local/share}/mise/shims:$PATH"
   npm update -g || warn "npm global update hit an issue (non-fatal)."
   npm outdated -g || true
 fi

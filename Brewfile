@@ -39,7 +39,7 @@ brew "starship"             # cross-shell prompt (config shared with containers)
 
 # --- Shells (zsh is the wired-up default; fish + nu are alt drivers) ----------
 # Single self-contained binaries, no daemons. fish pulls pcre2, nushell pulls
-# openssl@3 — both tiny / already present. Host wiring (fnm, 1Password agent,
+# openssl@3 — both tiny / already present. Host wiring (mise, 1Password agent,
 # fzf/zoxide, devcontainer + agent aliases) is mirrored into all three shells.
 brew "fish"                 # config: .dotfiles/fish
 brew "nushell"              # config: .dotfiles/nushell  (binary: `nu`)
@@ -57,10 +57,16 @@ brew "yq"                   # YAML wrangling (docker-compose, configs)
 brew "lazygit"             # TUI git client for quick host-side history/staging
 brew "wget"                 # the one curl can't always replace
 
-# --- Node toolchain (host stays clean; Node only for local CLI tooling) ------
-brew "fnm"                  # Fast Node Manager. Host Node is for CLI tools only
-                            # (@devcontainers/cli, etc.), NOT app runtimes —
-                            # those live inside the dev containers.
+# --- Runtime versions (host stays clean; Node only for local CLI tooling) ----
+brew "mise"                 # polyglot runtime version manager — replaced fnm
+                            # (2026-09-03). Owns host Node, pinned to LTS with
+                            # `mise use -g node@lts` (recorded in
+                            # ~/.config/mise/config.toml). Host Node is for CLI
+                            # tools only (@devcontainers/cli, etc.), NOT app
+                            # runtimes — those live in the dev containers.
+                            # Activated in all three shells; auto-switches on cd
+                            # for .node-version/.nvmrc/.tool-versions/mise.toml.
+                            # Extend to python/go/etc. when a need shows up.
 
 # --- Container engine + dev containers --------------------------------------
 cask "orbstack"            # Docker/Compose-compatible engine, faster on macOS.
@@ -133,4 +139,4 @@ cask "font-jetbrains-mono-nerd-font"  # required by the Ghostty config
 # brew "curlie"           # curl + httpie ergonomics
 
 # --- All-in-one updater (alternative to update-mac.sh; see docs) -------------
-# brew "topgrade"         # updates brew + npm globals + fnm + more in one shot
+# brew "topgrade"         # updates brew + npm globals + mise + more in one shot

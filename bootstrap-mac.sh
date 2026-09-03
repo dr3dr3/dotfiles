@@ -6,7 +6,7 @@
 #   1. install Homebrew (if missing)
 #   2. install everything in ./Brewfile
 #   3. stow the macOS dotfiles (zsh, ghostty, starship) into ~
-#   4. set up host Node via fnm + install @devcontainers/cli (npm-only)
+#   4. set up host Node via mise + install @devcontainers/cli (npm-only)
 #   5. print the manual follow-up steps that can't be automated
 #
 # It deliberately does NOT install AI agent CLIs on the host — those run inside
@@ -76,14 +76,14 @@ ok "Dotfiles linked into ~."
 mkdir -p "$HOME/Code" "$HOME/host-share"
 ok "~/Code and ~/host-share ready."
 
-# --- 4. Host Node (fnm) + @devcontainers/cli (npm-only) ----------------------
-info "Setting up host Node via fnm (CLI tooling only)…"
-eval "$(fnm env)"
-if ! fnm ls 2>/dev/null | grep -q 'lts'; then
-  fnm install --lts
-fi
-fnm default lts-latest >/dev/null 2>&1 || fnm default "$(fnm ls | tail -1 | tr -d ' *')"
-eval "$(fnm env --use-on-cd)"
+# --- 4. Host Node (mise) + @devcontainers/cli (npm-only) ---------------------
+info "Setting up host Node via mise (CLI tooling only)…"
+# Pin the global Node to the current LTS line. Idempotent: re-running re-resolves
+# `lts` and rewrites ~/.config/mise/config.toml. Replaced fnm on 2026-09-03.
+mise use --global node@lts
+# `mise activate` hooks an interactive prompt, which does nothing in a script —
+# so put mise's shims on PATH to make node/npm resolvable for the steps below.
+export PATH="${XDG_DATA_HOME:-$HOME/.local/share}/mise/shims:$PATH"
 
 if ! command -v devcontainer >/dev/null 2>&1; then
   info "Installing @devcontainers/cli (npm global)…"

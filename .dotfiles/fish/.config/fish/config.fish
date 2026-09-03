@@ -10,9 +10,12 @@ if test -x /opt/homebrew/bin/brew
     /opt/homebrew/bin/brew shellenv | source
 end
 
-# fnm — host Node for CLI tooling; switches version on cd
-if type -q fnm
-    fnm env --use-on-cd --shell fish | source
+# mise — host Node for CLI tooling; switches runtime on cd (replaced fnm).
+# NOTE: brew ships share/fish/vendor_conf.d/mise-activate.fish, so this is a
+# second activation — verified idempotent (no duplicate PATH entries). Kept
+# explicit for parity with zsh/nushell and for non-brew mise installs.
+if type -q mise
+    mise activate fish | source
 end
 
 # 1Password biometric SSH agent (socket exists only on the macOS host)

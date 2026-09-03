@@ -45,7 +45,7 @@ git clone https://github.com/dr3dr3/dotfiles.git ~/Code/dr3dr3/dotfiles
 cd ~/Code/dr3dr3/dotfiles
 
 # 2. Run the idempotent bootstrap:
-#    Homebrew → Brewfile → stow zsh/ghostty/starship → fnm + @devcontainers/cli
+#    Homebrew → Brewfile → stow zsh/ghostty/starship → mise + @devcontainers/cli
 #    → create ~/Code and ~/host-share
 ./bootstrap-mac.sh
 #    └─ Homebrew will prompt to install Xcode Command Line Tools — accept.
@@ -70,7 +70,7 @@ exec zsh
    brew autoupdate start 86400 --upgrade --cleanup --enable-notification
    ```
 5. *(optional)* **Shells** — zsh is the default and the most wired-up, but Fish
-   and Nushell carry the same host wiring (fnm, 1Password agent, fzf/zoxide,
+   and Nushell carry the same host wiring (mise, 1Password agent, fzf/zoxide,
    the `dc*`/`cc`/`oll`/`clone` shortcuts). To make one the login shell:
    ```bash
    which fish | sudo tee -a /etc/shells   # register it once (fish/nu)
@@ -84,7 +84,7 @@ exec zsh
 
 ```bash
 brew bundle check --file=~/Code/dr3dr3/dotfiles/Brewfile   # all green
-devcontainer --version && docker ps && fnm current         # tooling live
+devcontainer --version && docker ps && mise current       # tooling live
 op whoami                                                  # biometric 1Password
 ls -ld ~/Code ~/host-share                                 # folders exist
 ```
