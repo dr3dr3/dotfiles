@@ -5,7 +5,11 @@
 # inside isolated dev containers; a UI editor is launched Just-In-Time only for
 # inspection/diffing.
 #
-# Apply with:   brew bundle --file=Brewfile
+# Apply with:   brew bundle              (HOMEBREW_BUNDLE_FILE points here, so no
+#                                         --file and any working directory is fine)
+# Remove drift: brew bundle cleanup      (dry run) then --force to uninstall
+#               NOTE: `brew bundle` is additive — deleting a line here does NOT
+#               uninstall it. The cleanup pass is what applies removals.
 # Or via:       ./bootstrap-mac.sh   (installs Homebrew + this + dotfiles)
 #
 # Validated against formulae.brew.sh / official repos (June 2026).

@@ -94,7 +94,11 @@ cdc() { cd "$CODE_DIR/${1:-}"; }
 
 # --- host maintenance (see update-mac.sh + docs/CHEATSHEET.md) ----------------
 alias upd='~/Code/dr3dr3/dotfiles/update-mac.sh'    # update + audit the host
-alias brewdump="brew bundle dump --file=~/Code/dr3dr3/dotfiles/Brewfile --force"  # snapshot installs
+# Snapshot the CURRENT install set to a scratch file for drift inspection.
+# NEVER dumps over the tracked Brewfile: `dump --force` writes a bare generated
+# list, destroying its rationale comments and the optional-groups block.
+# For plain drift answers prefer `brew bundle check` / `brew bundle cleanup`.
+alias brewdump="brew bundle dump --file=/tmp/Brewfile.now --force && echo '→ wrote /tmp/Brewfile.now — diff it against the repo Brewfile by hand'"
 
 # --- date/time ---------------------------------------------------------------
 alias ds='date +%Y-%m-%d'

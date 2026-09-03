@@ -195,14 +195,44 @@ osv-scanner scan --recursive ~/Code           # or set WORKSPACE_DIR for `upd`
 - Self-updating (no action needed): Claude Code (native installer), OrbStack,
   1Password, Ghostty's binary via `brew upgrade --cask`.
 
+### Editing the package set (add / remove software)
+
+There is exactly **one** Brewfile on this machine: `~/Code/dr3dr3/dotfiles/Brewfile`.
+`HOMEBREW_BUNDLE_FILE` points at it (set in the zsh/fish/nushell configs), so
+every `brew bundle` subcommand targets it **from any directory** — no `--file`
+needed. Edit the file, then apply:
+
+```bash
+brew bundle                  # install everything declared (additive; never removes)
+brew bundle cleanup          # DRY RUN: what's installed but no longer declared
+brew bundle cleanup --force  # actually uninstall those
+```
+
+`brew bundle` alone will **not** remove a package you deleted from the Brewfile —
+you need the `cleanup` pass. The full "make the host match the file" round trip:
+
+```bash
+brew bundle && ./update-mac.sh --prune
+```
+
+> **Caveat:** `HOMEBREW_BUNDLE_FILE` wins over a `./Brewfile` in the current
+> directory. If you ever work in a project shipping its own Brewfile, pass
+> `--file=./Brewfile` explicitly. `bootstrap-mac.sh` / `update-mac.sh` are
+> unaffected — they always pass `--file`.
+
 ### Drift & snapshots
 
 ```bash
-brew bundle check --file=Brewfile     # is everything in the Brewfile installed?
-brew bundle cleanup --file=Brewfile   # show what's installed but NOT declared
-brewdump                              # snapshot current installs back to Brewfile
-brew leaves                           # top-level formulae (no other pkg needs them)
+brew bundle check            # is everything in the Brewfile installed?
+brew bundle cleanup          # show what's installed but NOT declared
+brew leaves                  # top-level formulae (no other pkg needs them)
+brew list --cask             # installed casks
 ```
+
+> ⚠️ `brewdump` (`brew bundle dump --force`) **overwrites** the Brewfile with a
+> bare generated list, destroying its comments and the optional-groups block.
+> Use it only to *discover* drift, dumping somewhere scratch first:
+> `brew bundle dump --file=/tmp/Brewfile.now && diff /tmp/Brewfile.now Brewfile`
 
 ---
 

@@ -98,5 +98,12 @@ def --env clone [slug: string, host: string = "github.com"] {
 def --env cdc [repo?: string] { cd ($env.CODE_DIR | path join ($repo | default "")) }
 
 # host maintenance
+# Default Brewfile for every `brew bundle` subcommand, from any directory.
+# Lookup order: --file flag > this var > ./Brewfile (so a per-project Brewfile
+# elsewhere needs an explicit --file). The *-mac.sh scripts pass --file already.
+$env.HOMEBREW_BUNDLE_FILE = ($env.HOME | path join "Code/dr3dr3/dotfiles/Brewfile")
 def upd [...rest] { ^($env.HOME | path join "Code/dr3dr3/dotfiles/update-mac.sh") ...$rest }
-def brewdump [] { brew bundle dump --file=($env.HOME | path join "Code/dr3dr3/dotfiles/Brewfile") --force }
+# Scratch-file snapshot only — never dump over the tracked Brewfile (--force
+# would strip its comments + optional-groups block). Prefer `brew bundle check`
+# / `brew bundle cleanup` for straight drift answers.
+def brewdump [] { brew bundle dump --file=/tmp/Brewfile.now --force; print "→ wrote /tmp/Brewfile.now" }

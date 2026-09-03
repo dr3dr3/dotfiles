@@ -2,3 +2,14 @@
 # stowed as a folded symlink, fish writes this file straight into the repo on every
 # run — it's host state, never config, so keep it out of version control.
 .dotfiles/fish/.config/fish/fish_variables
+
+# macOS Finder metadata. Written into any directory Finder browses (including
+# this repo, and into stowed folders via the folded symlinks), never useful in
+# version control. The bare pattern matches at every level, not just the root.
+.DS_Store
+
+# OrbStack drops completion symlinks here (docker/kubectl/orbctl), each pointing
+# at an absolute path inside /Applications/OrbStack.app. Same folded-symlink
+# mechanism as fish_variables above: host state, regenerated on install, and
+# committing it would push broken links to other machines.
+.dotfiles/fish/.config/fish/completions/

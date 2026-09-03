@@ -147,7 +147,14 @@ function cdc --description 'cd into ~/Code[/<org>/<repo>]'
 end
 
 # ── host maintenance ─────────────────────────────────────────────────────────
+# Default Brewfile for every `brew bundle` subcommand, from any directory.
+# Lookup order: --file flag > this var > ./Brewfile (so a per-project Brewfile
+# elsewhere needs an explicit --file). The *-mac.sh scripts pass --file already.
+set -gx HOMEBREW_BUNDLE_FILE "$HOME/Code/dr3dr3/dotfiles/Brewfile"
 abbr -a -- upd '~/Code/dr3dr3/dotfiles/update-mac.sh'
-abbr -a -- brewdump 'brew bundle dump --file=~/Code/dr3dr3/dotfiles/Brewfile --force'
+# Scratch-file snapshot only — never dump over the tracked Brewfile (--force
+# would strip its comments + optional-groups block). Prefer `brew bundle check`
+# / `brew bundle cleanup` for straight drift answers.
+abbr -a -- brewdump 'brew bundle dump --file=/tmp/Brewfile.now --force; echo "→ wrote /tmp/Brewfile.now"'
 
 starship init fish | source

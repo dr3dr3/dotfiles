@@ -14,3 +14,13 @@
 #   OLLAMA_HOST=0.0.0.0:11434 brew services restart ollama
 # See SETUP.md ("Local LLM — Ollama").
 export OLLAMA_HOST=0.0.0.0:11434
+
+# --- Homebrew Bundle ---------------------------------------------------------
+# Make the dotfiles Brewfile the default target for every `brew bundle`
+# subcommand, from any directory — so `brew bundle`, `brew bundle check` and
+# `brew bundle cleanup` all act on the repo's declared package set without
+# needing --file. Lookup order is: --file flag > this var > ./Brewfile.
+# NOTE: because this wins over a ./Brewfile in the current directory, a
+# per-project Brewfile elsewhere would be ignored — pass --file explicitly for
+# those. bootstrap-mac.sh / update-mac.sh are unaffected (they pass --file).
+export HOMEBREW_BUNDLE_FILE="$HOME/Code/dr3dr3/dotfiles/Brewfile"
