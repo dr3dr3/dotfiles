@@ -2,11 +2,15 @@
 # ~/.config/zsh/agents.zsh — host-side launchers for the in-container AI agents
 # (sourced by ~/.zshrc)
 #
-# The agents themselves do NOT run on this host. They are installed *inside* the
-# dev containers by dotai (github.com/dr3dr3/dotai) for isolation/safety. These
-# wrappers just `devcontainer exec` into the current project's container and
-# start the agent there. Secrets resolve in-container via the mounted 1Password
-# agent.sock + varlock (also provisioned by dotai) — nothing touches the host.
+# These wrappers run the agents INSIDE the project's dev container, which is the
+# default for any real project work: dotai (github.com/dr3dr3/dotai) installs
+# them there, and `devcontainer exec` starts them in the current project's
+# container. Secrets resolve in-container via the mounted 1Password agent.sock +
+# varlock (also provisioned by dotai) — nothing touches the host.
+#
+# Host copies of claude/codex/herdr are also installed (see Brewfile) for the
+# times there is no container to work in. The names don't collide: bare `claude`
+# / `codex` are the host binaries; the wrappers below are the container ones.
 #
 # TERM is forced to a value the container's terminfo knows (Ghostty advertises
 # xterm-ghostty, which bare images lack) so the agents' TUIs render correctly.

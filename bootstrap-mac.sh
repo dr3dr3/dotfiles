@@ -5,12 +5,14 @@
 # Idempotent: safe to re-run. It will
 #   1. install Homebrew (if missing)
 #   2. install everything in ./Brewfile
-#   3. stow the macOS dotfiles (zsh, ghostty, starship) into ~
-#   4. set up host Node via fnm + install @devcontainers/cli (npm-only)
+#   3. stow the macOS dotfiles (zsh, ghostty, starship, fish, nushell, zellij,
+#      mise) into ~
+#   4. set up host Node via mise + install @devcontainers/cli (npm-only)
 #   5. print the manual follow-up steps that can't be automated
 #
-# It deliberately does NOT install AI agent CLIs on the host — those run inside
-# the dev containers (provisioned by dotai). This box only boots them.
+# Project agent work happens inside the dev containers (provisioned by dotai).
+# The Brewfile additionally installs host copies of Claude Code / Codex / herdr
+# for the times there is no container to work in.
 #
 # Usage:
 #   git clone https://github.com/dr3dr3/dotfiles.git ~/Code/dr3dr3/dotfiles
@@ -22,7 +24,7 @@ REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 STOW_DIR="$REPO_DIR/.dotfiles"
 # macOS host packages. zsh is the wired-up default; fish + nushell are alt
 # drivers with the same host wiring. (vim stays container-only.)
-STOW_PACKAGES=(zsh ghostty starship fish nushell zellij)
+STOW_PACKAGES=(zsh ghostty starship fish nushell zellij mise)
 
 # --- pretty logging ----------------------------------------------------------
 info()  { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
@@ -76,14 +78,14 @@ ok "Dotfiles linked into ~."
 mkdir -p "$HOME/Code" "$HOME/host-share"
 ok "~/Code and ~/host-share ready."
 
-# --- 4. Host Node (fnm) + @devcontainers/cli (npm-only) ----------------------
-info "Setting up host Node via fnm (CLI tooling only)…"
-eval "$(fnm env)"
-if ! fnm ls 2>/dev/null | grep -q 'lts'; then
-  fnm install --lts
-fi
-fnm default lts-latest >/dev/null 2>&1 || fnm default "$(fnm ls | tail -1 | tr -d ' *')"
-eval "$(fnm env --use-on-cd)"
+# --- 4. Host Node (mise) + @devcontainers/cli (npm-only) ---------------------
+info "Setting up host Node via mise (CLI tooling only)…"
+# Pin the global Node to the current LTS line. Idempotent: re-running re-resolves
+# `lts` and rewrites ~/.config/mise/config.toml. Replaced fnm on 2026-09-03.
+mise use --global node@lts
+# `mise activate` hooks an interactive prompt, which does nothing in a script —
+# so put mise's shims on PATH to make node/npm resolvable for the steps below.
+export PATH="${XDG_DATA_HOME:-$HOME/.local/share}/mise/shims:$PATH"
 
 if ! command -v devcontainer >/dev/null 2>&1; then
   info "Installing @devcontainers/cli (npm global)…"
@@ -104,7 +106,7 @@ cat <<'EOF'
       "Integrate with 1Password CLI" (biometric unlock for `op`).
     • New shells then pick up SSH_AUTH_SOCK automatically (see ~/.zshrc).
 
-  AI agents (run inside the containers, not here)
+  AI agents (host copies come from the Brewfile; per-project ones live in the container)
     • Provision them per project with dotai:
         git clone https://github.com/dr3dr3/dotai.git /workspace/.ai/dotai
         bash /workspace/.ai/dotai/setup.sh      # inside the devcontainer
@@ -124,7 +126,8 @@ cat <<'EOF'
   Stay current (optional, recommended)
     • Run `./update-mac.sh` weekly (aliased to `upd`), or automate background
       Homebrew upgrades:
-        brew tap homebrew/autoupdate
+        brew trust domt4/autoupdate   # tap comes from the Brewfile; brew
+                                      # refuses to load the command untrusted
         brew autoupdate start 86400 --upgrade --cleanup --enable-notification
     • Full command + maintenance reference: docs/CHEATSHEET.md
 ────────────────────────────────────────────────────────────────────────────

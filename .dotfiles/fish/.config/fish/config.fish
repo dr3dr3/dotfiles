@@ -10,10 +10,20 @@ if test -x /opt/homebrew/bin/brew
     /opt/homebrew/bin/brew shellenv | source
 end
 
-# fnm — host Node for CLI tooling; switches version on cd
-if type -q fnm
-    fnm env --use-on-cd --shell fish | source
+# mise — host Node for CLI tooling; switches runtime on cd (replaced fnm).
+# NOTE: brew ships share/fish/vendor_conf.d/mise-activate.fish, so this is a
+# second activation — verified idempotent (no duplicate PATH entries). Kept
+# explicit for parity with zsh/nushell and for non-brew mise installs.
+if type -q mise
+    mise activate fish | source
 end
+
+# ~/.local/bin — Unsloth Studio CLI, pipx / uv / pip --user shims.
+# Owned here rather than left to installers: Unsloth's install.sh writes a
+# conf.d/unsloth.fish with a HARDCODED /Users/<name>/ path, and the fish
+# package is a folded stow symlink, so that lands in the tracked repo.
+# fish_add_path is idempotent and uses $HOME.
+fish_add_path "$HOME/.local/bin"
 
 # 1Password biometric SSH agent (socket exists only on the macOS host)
 set -l op_sock "$HOME/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"
@@ -147,7 +157,14 @@ function cdc --description 'cd into ~/Code[/<org>/<repo>]'
 end
 
 # ── host maintenance ─────────────────────────────────────────────────────────
+# Default Brewfile for every `brew bundle` subcommand, from any directory.
+# Lookup order: --file flag > this var > ./Brewfile (so a per-project Brewfile
+# elsewhere needs an explicit --file). The *-mac.sh scripts pass --file already.
+set -gx HOMEBREW_BUNDLE_FILE "$HOME/Code/dr3dr3/dotfiles/Brewfile"
 abbr -a -- upd '~/Code/dr3dr3/dotfiles/update-mac.sh'
-abbr -a -- brewdump 'brew bundle dump --file=~/Code/dr3dr3/dotfiles/Brewfile --force'
+# Scratch-file snapshot only — never dump over the tracked Brewfile (--force
+# would strip its comments + optional-groups block). Prefer `brew bundle check`
+# / `brew bundle cleanup` for straight drift answers.
+abbr -a -- brewdump 'brew bundle dump --file=/tmp/Brewfile.now --force; echo "→ wrote /tmp/Brewfile.now"'
 
 starship init fish | source

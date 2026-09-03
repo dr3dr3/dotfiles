@@ -12,10 +12,12 @@ fi
 export EDITOR="vim"
 export VISUAL="$EDITOR"
 
-# --- fnm (host Node for CLI tooling only; app runtimes live in containers) ----
-# --use-on-cd switches Node version when entering a dir with .node-version/.nvmrc
-if command -v fnm >/dev/null 2>&1; then
-  eval "$(fnm env --use-on-cd --shell zsh)"
+# --- mise (host Node for CLI tooling only; app runtimes live in containers) ---
+# `mise activate` installs a precmd hook, so the runtime switches on cd whenever
+# a dir carries .node-version / .nvmrc / .tool-versions / mise.toml.
+# Replaced fnm on 2026-09-03 — one PATH owner, no version-manager race.
+if command -v mise >/dev/null 2>&1; then
+  eval "$(mise activate zsh)"
 fi
 
 # --- 1Password SSH agent ------------------------------------------------------

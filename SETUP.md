@@ -3,7 +3,9 @@
 First-run guide for a fresh macOS (Apple Silicon) machine. The host is a
 terminal-first **launcher**: it boots dev containers, holds secrets, and runs
 the engine — **AI agents run inside the containers** (via
-[dotai](https://github.com/dr3dr3/dotai)), never on the host.
+[dotai](https://github.com/dr3dr3/dotai)) for project work. Host copies of
+Claude Code / Codex / herdr are installed as well, for the times there is no
+container to work in (this dotfiles repo, host triage, a quick one-off).
 
 - Daily commands once you're set up: **[docs/CHEATSHEET.md](docs/CHEATSHEET.md)**
 - What gets installed: **[Brewfile](Brewfile)** · **[bootstrap-mac.sh](bootstrap-mac.sh)**
@@ -45,7 +47,7 @@ git clone https://github.com/dr3dr3/dotfiles.git ~/Code/dr3dr3/dotfiles
 cd ~/Code/dr3dr3/dotfiles
 
 # 2. Run the idempotent bootstrap:
-#    Homebrew → Brewfile → stow zsh/ghostty/starship → fnm + @devcontainers/cli
+#    Homebrew → Brewfile → stow zsh/ghostty/starship → mise + @devcontainers/cli
 #    → create ~/Code and ~/host-share
 ./bootstrap-mac.sh
 #    └─ Homebrew will prompt to install Xcode Command Line Tools — accept.
@@ -65,11 +67,12 @@ exec zsh
 3. **Ghostty** — set it as your default terminal (the config is already linked).
 4. *(optional)* Background Homebrew updates:
    ```bash
-   brew tap homebrew/autoupdate
+   brew trust domt4/autoupdate   # tap is declared in the Brewfile; brew
+                                 # won't load the command until it is trusted
    brew autoupdate start 86400 --upgrade --cleanup --enable-notification
    ```
 5. *(optional)* **Shells** — zsh is the default and the most wired-up, but Fish
-   and Nushell carry the same host wiring (fnm, 1Password agent, fzf/zoxide,
+   and Nushell carry the same host wiring (mise, 1Password agent, fzf/zoxide,
    the `dc*`/`cc`/`oll`/`clone` shortcuts). To make one the login shell:
    ```bash
    which fish | sudo tee -a /etc/shells   # register it once (fish/nu)
@@ -83,7 +86,7 @@ exec zsh
 
 ```bash
 brew bundle check --file=~/Code/dr3dr3/dotfiles/Brewfile   # all green
-devcontainer --version && docker ps && fnm current         # tooling live
+devcontainer --version && docker ps && mise current       # tooling live
 op whoami                                                  # biometric 1Password
 ls -ld ~/Code ~/host-share                                 # folders exist
 ```

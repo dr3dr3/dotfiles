@@ -13,18 +13,24 @@ if ("/opt/homebrew/bin/brew" | path exists) {
     $env.PATH = ($env.PATH | prepend ["/opt/homebrew/bin" "/opt/homebrew/sbin"])
 }
 
-# ── fnm — host Node for CLI tooling ──────────────────────────────────────────
-# Loads fnm's env + puts the default Node on PATH. Auto-switch-on-cd is wired as
-# a defensive PWD hook below (fnm ships no first-class Nushell hook).
-if (which fnm | is-not-empty) {
-    ^fnm env --json | from json | load-env
-    $env.PATH = ($env.PATH | prepend ($env.FNM_MULTISHELL_PATH | path join "bin"))
-    $env.config.hooks.env_change.PWD = (
-        $env.config.hooks.env_change.PWD? | default []
-        | append {|| if ([.nvmrc .node-version] | any {|f| $f | path exists }) {
-            try { ^fnm use --silent-if-unchanged }
-        } }
-    )
+# ── ~/.local/bin ─────────────────────────────────────────────────────────────
+# Unsloth Studio CLI, pipx / uv / pip --user shims. Owned here rather than left
+# to installers — Unsloth's install.sh writes shell snippets with a hardcoded
+# /Users/<name>/ path, and these packages are folded stow symlinks, so such
+# edits land in the tracked repo.
+$env.PATH = ($env.PATH | prepend ($env.HOME | path join ".local/bin"))
+
+# ── mise — host Node for CLI tooling (replaced fnm 2026-09-03) ───────────────
+# Deliberately NOT the `mise activate nu` + vendor/autoload pattern that
+# starship/zoxide use below. `mise activate nu` bakes a *literal PATH snapshot*
+# into its generated script; since autoload is sourced before config.nu, each
+# startup would source the previous snapshot and then regenerate from it — a
+# feedback loop that can freeze a stale PATH (verified 2026-09-03).
+# Prepending the shims dir is static and deterministic instead, and still honours
+# per-directory pins because each shim asks mise at exec time.
+# Trade-off: no mise-managed env vars / on-cd env changes — unused on this host.
+if (which mise | is-not-empty) {
+    $env.PATH = ($env.PATH | prepend ($env.HOME | path join ".local/share/mise/shims"))
 }
 
 # ── 1Password biometric SSH agent (macOS host only) ──────────────────────────
@@ -98,5 +104,12 @@ def --env clone [slug: string, host: string = "github.com"] {
 def --env cdc [repo?: string] { cd ($env.CODE_DIR | path join ($repo | default "")) }
 
 # host maintenance
+# Default Brewfile for every `brew bundle` subcommand, from any directory.
+# Lookup order: --file flag > this var > ./Brewfile (so a per-project Brewfile
+# elsewhere needs an explicit --file). The *-mac.sh scripts pass --file already.
+$env.HOMEBREW_BUNDLE_FILE = ($env.HOME | path join "Code/dr3dr3/dotfiles/Brewfile")
 def upd [...rest] { ^($env.HOME | path join "Code/dr3dr3/dotfiles/update-mac.sh") ...$rest }
-def brewdump [] { brew bundle dump --file=($env.HOME | path join "Code/dr3dr3/dotfiles/Brewfile") --force }
+# Scratch-file snapshot only — never dump over the tracked Brewfile (--force
+# would strip its comments + optional-groups block). Prefer `brew bundle check`
+# / `brew bundle cleanup` for straight drift answers.
+def brewdump [] { brew bundle dump --file=/tmp/Brewfile.now --force; print "→ wrote /tmp/Brewfile.now" }

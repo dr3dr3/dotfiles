@@ -1,0 +1,40 @@
+# =============================================================================
+# ~/.config/mise/config.toml — HOST-level tool versions (stow package: mise)
+#
+# The declarative peer to ../../Brewfile. Linked into ~ by bootstrap-mac.sh.
+#
+# DIVISION OF LABOUR — keep this boundary sharp, or the two manifests fight:
+#
+#   Brewfile   → machine-wide, ONE version. System tools, GUI casks, daemons:
+#                git, gh, ripgrep, fzf, ghostty, orbstack, 1password,
+#                claude-code, codex…
+#   this file  → language runtimes, version-pinned CLIs, and tools installed
+#                via npm/cargo/go/aqua backends.
+#
+#   Rule of thumb: if the tool should exist once and always, it belongs to
+#   Homebrew. If its version depends on what you're working on, it's mise's.
+#
+# Do NOT migrate working Brewfile entries here for its own sake. `jq` and `yq`
+# are both in the mise registry but are single-version machine-wide tools —
+# they stay in the Brewfile.
+#
+# EDITING: `mise use -g <tool>@<ver>` rewrites THIS file in place. Verified
+# 2026-09-03 that mise writes *through* the stow symlink (it does not replace
+# it) and preserves these comments, so global tool changes land in the repo and
+# show up in `git status` — commit them.
+#
+# PER-PROJECT config does NOT belong here. Put a mise.toml at the project root
+# for its own runtime pins plus an [env] block for cluster-specific values
+# (TALOSIP, TALOSCONF, …). Those carry real IPs and paths that must not be
+# committed to this public dotfiles repo. Per-project pins also scope tool
+# shadowing: a project-local kubectl only wins inside that project, leaving
+# OrbStack's /usr/local/bin/kubectl intact everywhere else.
+#
+# Full guidance: docs/CHEATSHEET.md › "Tool versions with mise".
+# =============================================================================
+
+[tools]
+# Host Node — for CLI tooling only (@devcontainers/cli and friends), never app
+# runtimes; those live inside the dev containers. Replaced fnm on 2026-09-03.
+# `lts` re-resolves to the current LTS line on `mise upgrade`.
+node = "lts"
