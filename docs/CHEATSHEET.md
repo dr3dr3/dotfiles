@@ -4,7 +4,7 @@ Terminal-first, container-centric workflow. The **host stays clean** (terminal,
 shell, container engine, secrets, AI agents, single-binary CLI tools); **app
 runtimes** (PHP, Node apps, MySQL, Redis…) live inside dev containers.
 
-- Setup: [`bootstrap-mac.sh`](../bootstrap-mac.sh) · Packages: [`Brewfile`](../Brewfile)
+- Setup: [`bootstrap-mac.sh`](../bootstrap-mac.sh) · Packages: [`Brewfile`](../Brewfile) · Tool versions: [`mise config`](../.dotfiles/mise/.config/mise/config.toml)
 - Aliases: [`aliases.zsh`](../.dotfiles/zsh/.config/zsh/aliases.zsh) · [`agents.zsh`](../.dotfiles/zsh/.config/zsh/agents.zsh)
 - Maintenance: [`update-mac.sh`](../update-mac.sh)
 
@@ -259,6 +259,111 @@ brew list --cask             # installed casks
 
 ---
 
+## 📌 Tool versions with mise
+
+[mise](https://mise.jdx.sh) owns runtimes and per-project tool versions. Its
+host config is a stow package —
+[`.dotfiles/mise/.config/mise/config.toml`](../.dotfiles/mise/.config/mise/config.toml)
+— and is the declarative peer to the [`Brewfile`](../Brewfile).
+
+### Which manifest does a tool belong in?
+
+Keep this boundary sharp, or the two manifests fight:
+
+| | `Brewfile` | `mise` |
+|---|---|---|
+| **Scope** | Machine-wide, ONE version | Per-project, many versions |
+| **Owns** | System tools, GUI casks, daemons: `git`, `gh`, `ripgrep`, `ghostty`, `orbstack`, `1password`, `claude-code`, `codex` | Language runtimes, version-pinned CLIs, tools from npm/cargo/go/aqua |
+| **Apply** | `brew bundle` | `mise install` |
+
+**Rule of thumb:** if the tool should exist once and always → Homebrew. If its
+version depends on what you're working on → mise.
+
+Do **not** migrate working Brewfile entries over for its own sake. `jq` and
+`yq` are both in the mise registry but are single-version machine-wide tools —
+they stay in the Brewfile.
+
+### Daily commands
+
+```bash
+mise ls              # installed / active versions and where each came from
+mise current         # what's active in this directory
+mise use -g node@lts # set a HOST default — edits the stowed config in place
+mise use node@22     # pin for THIS project — writes ./mise.toml
+mise install         # install everything the active configs declare
+mise upgrade         # re-resolve `lts`-style pins to newer releases
+mise doctor          # config resolution, dirs, backends — start debugging here
+mise tasks           # list tasks declared in mise.toml
+mise run <task>      # run one
+```
+
+> `mise use -g` rewrites the **stowed** config. Verified 2026-09-03 that mise
+> writes *through* the stow symlink (it does not replace it) and preserves the
+> file's comments — so global tool changes land in the repo and show up in
+> `git status`. Commit them.
+
+### Per-project pins live in the PROJECT repo
+
+A `mise.toml` at a project root carries that project's tool pins plus an
+`[env]` block. **Not in this repo** — those files hold real cluster IPs and
+paths that shouldn't be committed here.
+
+This is the intended home for the Kubernetes/Talos tooling left commented out
+in the Brewfile, and it fixes `$TALOSIP` / `$TALOSCONF` — referenced by the
+`ta` / `tm` fish abbreviations but never defined anywhere:
+
+```toml
+# <project>/mise.toml
+[tools]
+kubectl  = "1.31"     # aqua:kubernetes/kubernetes/kubectl
+helm     = "latest"   # aqua:helm/helm
+k9s      = "latest"   # aqua:derailed/k9s
+talosctl = "latest"   # aqua:siderolabs/talos
+
+[env]
+TALOSIP   = "10.0.0.5"
+TALOSCONF = "{{config_root}}/talosconfig"
+```
+
+Two reasons this beats uncommenting them in the Brewfile:
+
+- **Scoped shadowing.** A project-local `kubectl` wins only inside that
+  project. `brew "kubectl"` would shadow OrbStack's `/usr/local/bin/kubectl`
+  *everywhere*, since `/opt/homebrew/bin` precedes it in `PATH`.
+- **Per-cluster versions.** Pin `kubectl` to whatever each cluster runs.
+
+New config files need a one-time `mise trust` before mise will load them.
+
+### Backends — for tools outside the registry
+
+`mise registry` lists ~1000 tools. For anything absent, install from source:
+
+```bash
+mise use -g npm:@devcontainers/cli   # an npm package as a global CLI
+mise use -g cargo:ripgrep            # from crates.io
+mise use -g ubi:owner/repo           # a GitHub release binary
+```
+
+Available: `aqua`, `asdf`, `cargo`, `conda`, `core`, `dotnet`, `forgejo`,
+`gem`, `github`, `gitlab`, `go`, `npm`, `pipx`, `pkgx`, `spm`, `http`, `s3`,
+`ubi`, `vfox`.
+
+### Gotchas
+
+- **Interactive shells use `activate`; scripts use shims.** `.zshrc` and
+  `config.fish` call `mise activate` (a prompt hook). `bootstrap-mac.sh` and
+  `update-mac.sh` instead put `~/.local/share/mise/shims` on `PATH`, because
+  the `activate` hook does nothing in a non-interactive script.
+- **Nushell deliberately differs.** It prepends the shims dir rather than using
+  `mise activate nu`, which bakes a literal `PATH` snapshot into its generated
+  script and can freeze a stale `PATH`. The reasoning is in `nushell/config.nu`.
+- **Homebrew formulae ignore mise's Node.** A formula needing Node depends on
+  Homebrew's own `node`, with its shebang rewritten to that absolute path.
+  mise's Node only serves what you install through mise — currently just
+  `@devcontainers/cli`.
+
+---
+
 ## 🔄 Re-applying / editing dotfiles
 
 ```bash
@@ -266,7 +371,7 @@ cd ~/Code/dr3dr3/dotfiles
 git pull
 ./bootstrap-mac.sh            # idempotent: re-stows, installs anything new
 # After editing a config, re-link just the dotfiles:
-cd .dotfiles && stow --restow --target "$HOME" zsh ghostty starship
+cd .dotfiles && stow --restow --target "$HOME" zsh ghostty starship fish nushell zellij mise
 ```
 
 Reload without restarting: `exec zsh` (shell) · `Cmd+Shift+,` (Ghostty).

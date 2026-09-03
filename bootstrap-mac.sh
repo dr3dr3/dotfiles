@@ -5,7 +5,8 @@
 # Idempotent: safe to re-run. It will
 #   1. install Homebrew (if missing)
 #   2. install everything in ./Brewfile
-#   3. stow the macOS dotfiles (zsh, ghostty, starship) into ~
+#   3. stow the macOS dotfiles (zsh, ghostty, starship, fish, nushell, zellij,
+#      mise) into ~
 #   4. set up host Node via mise + install @devcontainers/cli (npm-only)
 #   5. print the manual follow-up steps that can't be automated
 #
@@ -23,7 +24,7 @@ REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 STOW_DIR="$REPO_DIR/.dotfiles"
 # macOS host packages. zsh is the wired-up default; fish + nushell are alt
 # drivers with the same host wiring. (vim stays container-only.)
-STOW_PACKAGES=(zsh ghostty starship fish nushell zellij)
+STOW_PACKAGES=(zsh ghostty starship fish nushell zellij mise)
 
 # --- pretty logging ----------------------------------------------------------
 info()  { printf '\033[1;34m==>\033[0m %s\n' "$*"; }

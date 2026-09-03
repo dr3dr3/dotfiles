@@ -12,6 +12,12 @@
 #               uninstall it. The cleanup pass is what applies removals.
 # Or via:       ./bootstrap-mac.sh   (installs Homebrew + this + dotfiles)
 #
+# PEER MANIFEST: .dotfiles/mise/.config/mise/config.toml declares tool VERSIONS
+#               (runtimes, per-project pins). This file is machine-wide and
+#               single-version; mise is per-project and multi-version. Rule of
+#               thumb: exists once and always → here. Version depends on what
+#               you're working on → mise. See docs/CHEATSHEET.md › mise.
+#
 # Validated against formulae.brew.sh / official repos (June 2026).
 # The host is a LAUNCHER, not a workstation: it boots containers, holds secrets,
 # and runs the engine. AI coding agents run *inside* the dev containers by
