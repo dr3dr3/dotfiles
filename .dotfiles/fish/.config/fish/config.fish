@@ -18,6 +18,13 @@ if type -q mise
     mise activate fish | source
 end
 
+# ~/.local/bin — Unsloth Studio CLI, pipx / uv / pip --user shims.
+# Owned here rather than left to installers: Unsloth's install.sh writes a
+# conf.d/unsloth.fish with a HARDCODED /Users/<name>/ path, and the fish
+# package is a folded stow symlink, so that lands in the tracked repo.
+# fish_add_path is idempotent and uses $HOME.
+fish_add_path "$HOME/.local/bin"
+
 # 1Password biometric SSH agent (socket exists only on the macOS host)
 set -l op_sock "$HOME/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"
 if test -S "$op_sock"

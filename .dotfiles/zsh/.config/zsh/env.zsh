@@ -31,3 +31,18 @@ export OLLAMA_HOST=0.0.0.0:11434
 # per-project Brewfile elsewhere would be ignored — pass --file explicitly for
 # those. bootstrap-mac.sh / update-mac.sh are unaffected (they pass --file).
 export HOMEBREW_BUNDLE_FILE="$HOME/Code/dr3dr3/dotfiles/Brewfile"
+
+# --- ~/.local/bin on PATH ----------------------------------------------------
+# Standard user-binary dir. Things that install here: the Unsloth Studio CLI
+# (dropped by Unsloth Desktop's installer), plus pipx / uv / pip --user shims.
+# Declared here deliberately: Unsloth's install.sh appends its own
+# `export PATH=...` line to ~/.zshrc, and because the zsh package is a folded
+# stow symlink that edit lands in the tracked repo file. Its fish equivalent
+# hardcoded an absolute /Users/<name>/ path. Owning it here keeps the three
+# shells in parity and keeps machine-specific paths out of git — if an
+# installer re-adds its own line, revert it; this covers it.
+# Guarded so nested interactive shells don't duplicate the entry.
+case ":$PATH:" in
+  *":$HOME/.local/bin:"*) ;;
+  *) export PATH="$HOME/.local/bin:$PATH" ;;
+esac

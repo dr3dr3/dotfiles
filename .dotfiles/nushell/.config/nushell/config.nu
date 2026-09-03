@@ -13,6 +13,13 @@ if ("/opt/homebrew/bin/brew" | path exists) {
     $env.PATH = ($env.PATH | prepend ["/opt/homebrew/bin" "/opt/homebrew/sbin"])
 }
 
+# ── ~/.local/bin ─────────────────────────────────────────────────────────────
+# Unsloth Studio CLI, pipx / uv / pip --user shims. Owned here rather than left
+# to installers — Unsloth's install.sh writes shell snippets with a hardcoded
+# /Users/<name>/ path, and these packages are folded stow symlinks, so such
+# edits land in the tracked repo.
+$env.PATH = ($env.PATH | prepend ($env.HOME | path join ".local/bin"))
+
 # ── mise — host Node for CLI tooling (replaced fnm 2026-09-03) ───────────────
 # Deliberately NOT the `mise activate nu` + vendor/autoload pattern that
 # starship/zoxide use below. `mise activate nu` bakes a *literal PATH snapshot*
