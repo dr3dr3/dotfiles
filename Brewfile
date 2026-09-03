@@ -118,19 +118,40 @@ brew "herdr"               # agent multiplexer for the two above (herdr.dev).
                            # `brew services start herdr`. Stop the service to
                            # reclaim memory when idle.
 
-# --- Local LLM (fallback / transient only — NOT the primary driver) ----------
+# --- Local LLM — inference (ollama) + fine-tuning (unsloth) ------------------
+# Both are on-demand / transient, NOT primary drivers. Unified memory is the
+# binding constraint on this host, not disk — see the heads-up on each.
 brew "ollama"              # CLI + server (headless; no menu-bar app). Cleaner for
                             # a terminal-first, fallback-only tool: start on demand
                             # with `ollama serve` or `brew services start ollama`,
                             # and stop the service to reclaim memory when idle.
                             # `oll`/`olp`/`olr` aliases drive it. (Swap to
                             # cask "ollama-app" if you want the native menu-bar app.)
-                            # To let in-container agents reach it via
-                            # host.docker.internal, run the server with
-                            # OLLAMA_HOST=0.0.0.0:11434.
+                            # For in-container agents to reach it via
+                            # host.docker.internal it must bind 0.0.0.0 — use
+                            # the `o-up` alias. The exported OLLAMA_HOST covers
+                            # only a shell-started `ollama serve`; the launchd
+                            # service does NOT inherit it (see zsh/env.zsh).
+                            # o-up is not persistent across reboot.
                             # Heads-up: a 32b model is ~20GB resident in unified
                             # memory and competes with the ~16GB dev stack —
                             # local LLM memory is NOT free.
+cask "unsloth"             # Unsloth Desktop — GUI for Unsloth Studio: local
+                           # fine-tuning plus MLX/GGUF inference, Metal-
+                           # accelerated on Apple Silicon (arm64 + macOS only).
+                           # Self-updating (auto_updates), so brew neither
+                           # fights it nor nags in `brew outdated` — unlike the
+                           # claude-code cask above.
+                           # The pip/CLI route was passed over deliberately: it
+                           # needs Python >=3.11,<3.14 in a uv/venv, and this
+                           # host's python3 is 3.14.x — too new. If the CLI is
+                           # ever wanted, pin python + uv in a PER-PROJECT
+                           # mise.toml, not globally. See CHEATSHEET › mise.
+                           # Heads-up: fine-tuning is far heavier than the
+                           # ollama note above — plan to stop the containers
+                           # and the ollama service before a training run.
+                           # Beta (0.1.x); the cask itself was days old when
+                           # added, so expect churn.
 
 # --- Secrets (1Password — do NOT hand-roll key injection) --------------------
 # The host runs the 1Password app, which exposes the SSH agent + biometric CLI.
