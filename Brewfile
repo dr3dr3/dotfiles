@@ -26,9 +26,9 @@
 # Claude Code / Codex / herdr, for the times there is no container to work in.
 # See the "AI coding agents" section below.
 #
-# NOTE: @devcontainers/cli is intentionally not declared here either — it is
-#       npm-only and installed in bootstrap-mac.sh (the one host tool needed to
-#       boot the containers the agents normally live in).
+# NOTE: the devcontainer CLI IS declared here (see "Container engine" below).
+#       It used to be an npm global installed by bootstrap-mac.sh; moved to brew
+#       on 2026-09-04 so it lives in the declarative set like everything else.
 # =============================================================================
 
 # --- Taps --------------------------------------------------------------------
@@ -77,6 +77,19 @@ brew "mise"                 # polyglot runtime version manager — replaced fnm
                             # Extend to python/go/etc. when a need shows up.
 
 # --- Container engine + dev containers --------------------------------------
+brew "devcontainer"        # @devcontainers/cli — the reference implementation
+                           # (containers.dev). The one host tool needed to boot
+                           # a devcontainer without VS Code, and what `devsh`
+                           # (.dotfiles/bin) shells through. Was an npm global
+                           # under mise's node until 2026-09-04; that install
+                           # dies whenever `mise upgrade` re-resolves node@lts
+                           # to a new major, and sat outside brew bundle check.
+                           # Pulls brew's `node` as a dependency — harmless,
+                           # mise still wins on PATH (.zshrc runs brew shellenv
+                           # before `mise activate`, so its shims land first).
+                           # Do NOT also install the npm global: mise's node bin
+                           # dir precedes /opt/homebrew/bin, so it would shadow
+                           # this one and you'd be running the wrong copy.
 cask "orbstack"            # Docker/Compose-compatible engine, faster on macOS.
                             # Drop-in for the team's Docker Desktop standard —
                             # same socket/CLI/compose, no devcontainer changes.
