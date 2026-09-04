@@ -82,6 +82,12 @@ Dotfile configs live in `.dotfiles/` and are organised as [GNU Stow](https://www
 
 ```
 .dotfiles/
+  cliamp/      → ~/.config/cliamp/radios.toml  (curated radio shortlist)
+               ↳ ONLY radios.toml is stowed. config.toml is not: cliamp
+                 rewrites it on every visualiser/EQ change, and `cliamp setup`
+                 would write OAuth secrets into it. bootstrap-mac.sh mkdirs
+                 ~/.config/cliamp first so stow cannot fold the directory —
+                 see "Folded symlinks" below.
   zsh/         → ~/.zshrc + ~/.config/zsh/   (macOS host default shell)
   ghostty/     → ~/.config/ghostty/config    (macOS terminal)
   fish/        → ~/.config/fish/             (Fish shell — host + containers)

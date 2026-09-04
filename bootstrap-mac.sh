@@ -6,7 +6,7 @@
 #   1. install Homebrew (if missing)
 #   2. install everything in ./Brewfile
 #   3. stow the macOS dotfiles (zsh, ghostty, starship, fish, nushell, zellij,
-#      mise) into ~
+#      mise, cliamp) into ~
 #   4. set up host Node via mise + install @devcontainers/cli (npm-only)
 #   5. print the manual follow-up steps that can't be automated
 #
@@ -24,7 +24,7 @@ REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 STOW_DIR="$REPO_DIR/.dotfiles"
 # macOS host packages. zsh is the wired-up default; fish + nushell are alt
 # drivers with the same host wiring. (vim stays container-only.)
-STOW_PACKAGES=(zsh ghostty starship fish nushell zellij mise)
+STOW_PACKAGES=(zsh ghostty starship fish nushell zellij mise cliamp)
 
 # --- pretty logging ----------------------------------------------------------
 info()  { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
@@ -53,6 +53,14 @@ brew bundle --file="$REPO_DIR/Brewfile"
 ok "Brewfile applied."
 
 # --- 3. Dotfiles via GNU Stow ------------------------------------------------
+# Pre-create any target dir that the app ALSO writes runtime state into. Stow
+# folds a whole directory into a single symlink when the target does not exist
+# yet — verified 2026-09-05: with no ~/.config present, stowing `cliamp` linked
+# ~/.config itself into the repo. cliamp then writes cliamp.sock, cliamp.log,
+# favorites.toml and history straight into the tracked tree (see README ›
+# "Folded symlinks"). With the dir already there, stow links the individual
+# files instead and the runtime junk stays in ~.
+mkdir -p "$HOME/.config/cliamp"
 info "Stowing dotfiles: ${STOW_PACKAGES[*]}"
 cd "$STOW_DIR"
 # Re-link idempotently. Plain --restow is a no-op on re-runs (targets are already
