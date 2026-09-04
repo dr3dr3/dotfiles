@@ -75,6 +75,16 @@ brew "mise"                 # polyglot runtime version manager — replaced fnm
                             # Activated in all three shells; auto-switches on cd
                             # for .node-version/.nvmrc/.tool-versions/mise.toml.
                             # Extend to python/go/etc. when a need shows up.
+                            # STAYS ON BREW despite mise's own hint to curl the
+                            # mise.run build. Benchmarked 2026-09-04, both at
+                            # 2026.9.1: mise.run is 86M vs 139M and ~1.5ms
+                            # faster per call — under 2% of an 83ms zsh
+                            # startup, i.e. not perceptible. Keeping it here
+                            # keeps mise inside `brew bundle check`,
+                            # `brew autoupdate` and `upd --prune`; curling it
+                            # would need install/update/doctor changes to
+                            # replace that. Hint is silenced declaratively in
+                            # .dotfiles/mise/.config/mise/config.toml.
 
 # --- Container engine + dev containers --------------------------------------
 cask "orbstack"            # Docker/Compose-compatible engine, faster on macOS.
