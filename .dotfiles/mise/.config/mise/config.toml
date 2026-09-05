@@ -33,6 +33,19 @@
 # Full guidance: docs/CHEATSHEET.md › "Tool versions with mise".
 # =============================================================================
 
+[settings]
+# Silence mise's "replace Homebrew's formula with the mise.run binary" hint.
+# Measured on this host 2026-09-04, both at 2026.9.1 (brew → mise.run):
+#   binary size 139M → 86M   |  activate zsh 7.8ms → 6.3ms
+#   mise -v 7.3ms → 5.7ms    |  hook-env (per prompt) 10.8ms → 9.2ms
+# ~1.5ms against an 83ms total zsh startup — under 2%, not perceptible. The
+# 53M is real but cheap. Not worth it: `brew "mise"` is what keeps mise in the
+# declarative Brewfile set (brew bundle check / autoupdate / upd --prune).
+# Curling it would move mise outside that guarantee and need matching changes
+# in bootstrap-mac.sh, update-mac.sh and doctor-mac.sh. Decision recorded in
+# Brewfile next to the `brew "mise"` line — revisit if the gap ever widens.
+disable_hints = ["optimized_mise_homebrew"]
+
 [tools]
 # Host Node — for CLI tooling only (@devcontainers/cli and friends), never app
 # runtimes; those live inside the dev containers. Replaced fnm on 2026-09-03.
