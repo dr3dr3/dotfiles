@@ -6,8 +6,8 @@
 #   1. install Homebrew (if missing)
 #   2. install everything in ./Brewfile
 #   3. stow the macOS dotfiles (zsh, ghostty, starship, fish, nushell, zellij,
-#      mise, cliamp) into ~
-#   4. set up host Node via mise + install @devcontainers/cli (npm-only)
+#      mise, bin, cliamp) into ~
+#   4. set up host Node via mise (CLI tooling only)
 #   5. print the manual follow-up steps that can't be automated
 #
 # Project agent work happens inside the dev containers (provisioned by dotai).
@@ -24,7 +24,9 @@ REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 STOW_DIR="$REPO_DIR/.dotfiles"
 # macOS host packages. zsh is the wired-up default; fish + nushell are alt
 # drivers with the same host wiring. (vim stays container-only.)
-STOW_PACKAGES=(zsh ghostty starship fish nushell zellij mise cliamp)
+# `bin` ships host scripts to ~/.local/bin (already on PATH via env.zsh) — one
+# copy that zsh, fish and nushell all pick up, instead of three shell functions.
+STOW_PACKAGES=(zsh ghostty starship fish nushell zellij mise bin cliamp)
 
 # --- pretty logging ----------------------------------------------------------
 info()  { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
@@ -116,7 +118,7 @@ fi
 mkdir -p "$HOME/Code" "$HOME/host-share"
 ok "~/Code and ~/host-share ready."
 
-# --- 4. Host Node (mise) + @devcontainers/cli (npm-only) ---------------------
+# --- 4. Host Node (mise) -----------------------------------------------------
 info "Setting up host Node via mise (CLI tooling only)…"
 # Pin the global Node to the current LTS line. Idempotent: re-running re-resolves
 # `lts` and rewrites ~/.config/mise/config.toml. Replaced fnm on 2026-09-03.
@@ -125,11 +127,17 @@ mise use --global node@lts
 # so put mise's shims on PATH to make node/npm resolvable for the steps below.
 export PATH="${XDG_DATA_HOME:-$HOME/.local/share}/mise/shims:$PATH"
 
-if ! command -v devcontainer >/dev/null 2>&1; then
-  info "Installing @devcontainers/cli (npm global)…"
-  npm install -g @devcontainers/cli
+# The devcontainer CLI is NOT installed here any more — it is `brew
+# "devcontainer"` in the Brewfile, applied by step 2. Installing the npm global
+# as well would actively break things: mise's node bin dir precedes
+# /opt/homebrew/bin, so the npm copy shadows the brew one, and it vanishes
+# whenever `mise upgrade` re-resolves node@lts to a new major. If you are
+# upgrading a host that still has the old global, remove it:
+#   npm uninstall -g @devcontainers/cli
+if command -v devcontainer >/dev/null 2>&1; then
+  ok "devcontainer CLI present ($(devcontainer --version))."
 else
-  ok "@devcontainers/cli already installed."
+  warn "devcontainer CLI missing — expected from the Brewfile. Try: brew install devcontainer"
 fi
 
 # --- 5. Manual follow-ups (can't / shouldn't be automated) -------------------

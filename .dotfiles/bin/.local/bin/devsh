@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+# =============================================================================
+# ~/.local/bin/devsh — attach a host terminal to this repo's devcontainer
+# (stow package: bin)
+#
+# Usage:
+#   devsh                 # interactive shell inside the devcontainer
+#   devsh make doctor     # run one command in there instead
+#   devsh php artisan tinker
+#
+# cwd-based, like every other helper in this repo (dcu/dce/dcs, cc/cx/pi all
+# use `--workspace-folder .`). Run it anywhere inside a repo that has a
+# devcontainer and it attaches to that repo's container — nothing to register,
+# so it works for future projects too. To attach to a project you are not in:
+#   cdc rock-of-eye/local-dev-env && devsh
+#
+# A single script rather than three shell functions: ~/.local/bin is already on
+# PATH (see zsh/.config/zsh/env.zsh), so zsh, fish and nushell all get this with
+# no duplicated logic. Ghostty needs no config — it just runs the host shell.
+#
+# WHY `devcontainer exec` AND NOT `docker exec`
+# devcontainer.json's `remoteEnv` is applied by the CLI on exec, not baked into
+# the image. Bare `docker exec` therefore drops DEVCONTAINER and OP_ACCOUNT.
+# Rock of Eye's Makefile gates on DEVCONTAINER to export COMPOSE_PROJECT_NAME
+# from the container's own compose labels; without it, compose falls back to the
+# directory name and `make up` addresses a DIFFERENT project — the "roe-mysql
+# already in use" collision its comments warn about, or a silent second stack.
+# Measured 2026-09-04 via `make -pn help` inside the container:
+#   devcontainer exec → DEVCONTAINER=1, COMPOSE_PROJECT_NAME=roe-local-dev-env
+#   docker exec       → neither set
+# Costs ~0.46s of CLI startup. Worth it.
+# =============================================================================
+set -uo pipefail
+
+# --- locate the devcontainer ------------------------------------------------
+# The CLI does NOT search parent directories: from a subdir it dies with
+# "Dev container config (<cwd>/.devcontainer/devcontainer.json) not found"
+# under a JS stack trace. So walk up ourselves and hand it an explicit root.
+# (This is also why plain `dcs` only works at a repo root.) Both
+# .devcontainer/devcontainer.json and a root-level .devcontainer.json are
+# spec-valid, so accept either.
+find_root() {
+  local d="$PWD"
+  while [[ "$d" != "/" ]]; do
+    if [[ -f "$d/.devcontainer/devcontainer.json" || -f "$d/.devcontainer.json" ]]; then
+      printf '%s\n' "$d"
+      return 0
+    fi
+    d="$(dirname "$d")"
+  done
+  return 1
+}
+
+root="$(find_root)" || {
+  echo "devsh: no devcontainer found in $PWD or any parent." >&2
+  echo "       expected .devcontainer/devcontainer.json — cd into a project first." >&2
+  exit 1
+}
+
+command -v devcontainer >/dev/null 2>&1 || {
+  echo "devsh: the devcontainer CLI is not on PATH." >&2
+  echo "       brew install devcontainer   (declared in this repo's Brewfile)" >&2
+  exit 1
+}
+
+# Say which project we attached to when it is not obviously the cwd.
+[[ "$root" == "$PWD" ]] || echo "devsh: devcontainer → $root"
+
+# --- make sure it is up ------------------------------------------------------
+# Match on the label the CLI itself stamps on the container, not on a container
+# name. Names are templated in compose (roe${ROE_INSTANCE}-devcontainer) and
+# ROE_INSTANCE lives in the project's .env, NOT in the host shell — so guessing
+# the name attaches to the wrong container on a multi-instance clone.
+if [[ -z "$(docker ps -q --filter "label=devcontainer.local_folder=$root" 2>/dev/null)" ]]; then
+  echo "devsh: container not running → devcontainer up"
+  # Deliberately no --remove-existing-container: that recreates the container
+  # and replays postCreateCommand (1115 lines for Rock of Eye — ffmpeg,
+  # playwright, the lot). Use `dcb` when you actually want a rebuild.
+  devcontainer up --workspace-folder "$root" || {
+    echo "devsh: devcontainer up failed — see the output above." >&2
+    exit 1
+  }
+fi
+
+# --- attach ------------------------------------------------------------------
+# TERM: Ghostty advertises xterm-ghostty, which bare images have no terminfo
+# entry for, so clear/tput/TUIs error inside the container. Same override the
+# other helpers use; the proper fix is shipping the terminfo (see CHEATSHEET).
+# COLORTERM: keeps 24-bit colour working for in-container TUIs.
+if [[ $# -eq 0 ]]; then
+  exec devcontainer exec --workspace-folder "$root" \
+    env TERM=xterm-256color COLORTERM=truecolor bash -l
+else
+  exec devcontainer exec --workspace-folder "$root" \
+    env TERM=xterm-256color COLORTERM=truecolor "$@"
+fi

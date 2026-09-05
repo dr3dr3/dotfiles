@@ -43,10 +43,12 @@ via the mounted 1Password agent — no hand-rolled key injection.
 the keep-it-current/CVE-scan routine ([`update-mac.sh`](update-mac.sh)).
 
 Handy aliases (see [`aliases.zsh`](.dotfiles/zsh/.config/zsh/aliases.zsh) /
-[`agents.zsh`](.dotfiles/zsh/.config/zsh/agents.zsh)):
+[`agents.zsh`](.dotfiles/zsh/.config/zsh/agents.zsh)) plus
+[`devsh`](.dotfiles/bin/.local/bin/devsh):
 
 | Alias | Expands to |
 | --- | --- |
+| `devsh` / `devsh <cmd>` | host terminal into this repo's devcontainer — works from any subdir, starts it if down |
 | `dcu` / `dcb` / `dce` | `devcontainer up` / rebuild / `exec` (current folder) |
 | `cc` / `cca` / `cx` | Claude Code (personal / corporate-API) · Codex — in-container |
 | `oll` / `olp` / `olr` | `ollama list` / `ps` / `run` |
@@ -82,6 +84,9 @@ Dotfile configs live in `.dotfiles/` and are organised as [GNU Stow](https://www
 
 ```
 .dotfiles/
+  bin/         → ~/.local/bin/               (host scripts: `devsh`)
+               ↳ one script serves zsh + fish + nushell, so shell-agnostic
+                 helpers go here rather than being written three times.
   cliamp/      → ~/.config/cliamp/radios.toml  (curated radio shortlist)
                ↳ ONLY radios.toml is stowed. config.toml is not: cliamp
                  rewrites it on every visualiser/EQ change, and `cliamp setup`

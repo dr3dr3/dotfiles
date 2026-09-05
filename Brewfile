@@ -26,13 +26,17 @@
 # Claude Code / Codex / herdr, for the times there is no container to work in.
 # See the "AI coding agents" section below.
 #
-# NOTE: @devcontainers/cli is intentionally not declared here either — it is
-#       npm-only and installed in bootstrap-mac.sh (the one host tool needed to
-#       boot the containers the agents normally live in).
+# NOTE: the devcontainer CLI IS declared here (see "Container engine" below).
+#       It used to be an npm global installed by bootstrap-mac.sh; moved to brew
+#       on 2026-09-04 so it lives in the declarative set like everything else.
 # =============================================================================
 
 # --- Taps --------------------------------------------------------------------
 tap "dmno-dev/tap"          # varlock (secrets/env loader)
+tap "bjarneo/cliamp"        # cliamp (terminal music player) — upstream's own tap;
+                            # not in homebrew-core. Third-party, like the two
+                            # below: the formula pulls a signed prebuilt binary
+                            # from the project's GitHub releases (sha256-pinned).
 tap "domt4/autoupdate"      # `brew autoupdate` launchd job (background upgrades).
                             # Declared so `brew bundle cleanup --force` /
                             # `update-mac.sh --prune` don't untap it and silently
@@ -75,8 +79,31 @@ brew "mise"                 # polyglot runtime version manager — replaced fnm
                             # Activated in all three shells; auto-switches on cd
                             # for .node-version/.nvmrc/.tool-versions/mise.toml.
                             # Extend to python/go/etc. when a need shows up.
+                            # STAYS ON BREW despite mise's own hint to curl the
+                            # mise.run build. Benchmarked 2026-09-04, both at
+                            # 2026.9.1: mise.run is 86M vs 139M and ~1.5ms
+                            # faster per call — under 2% of an 83ms zsh
+                            # startup, i.e. not perceptible. Keeping it here
+                            # keeps mise inside `brew bundle check`,
+                            # `brew autoupdate` and `upd --prune`; curling it
+                            # would need install/update/doctor changes to
+                            # replace that. Hint is silenced declaratively in
+                            # .dotfiles/mise/.config/mise/config.toml.
 
 # --- Container engine + dev containers --------------------------------------
+brew "devcontainer"        # @devcontainers/cli — the reference implementation
+                           # (containers.dev). The one host tool needed to boot
+                           # a devcontainer without VS Code, and what `devsh`
+                           # (.dotfiles/bin) shells through. Was an npm global
+                           # under mise's node until 2026-09-04; that install
+                           # dies whenever `mise upgrade` re-resolves node@lts
+                           # to a new major, and sat outside brew bundle check.
+                           # Pulls brew's `node` as a dependency — harmless,
+                           # mise still wins on PATH (.zshrc runs brew shellenv
+                           # before `mise activate`, so its shims land first).
+                           # Do NOT also install the npm global: mise's node bin
+                           # dir precedes /opt/homebrew/bin, so it would shadow
+                           # this one and you'd be running the wrong copy.
 cask "orbstack"            # Docker/Compose-compatible engine, faster on macOS.
                             # Drop-in for the team's Docker Desktop standard —
                             # same socket/CLI/compose, no devcontainer changes.
@@ -187,6 +214,28 @@ brew "mas"                  # Mac App Store CLI — declarative App Store instal
 brew "osv-scanner"          # scan composer.lock / package-lock.json for CVEs.
                             # Run against the project repos (where real vulns
                             # live), not just the host. See update-mac.sh + docs.
+
+# --- Terminal music ----------------------------------------------------------
+brew "bjarneo/cliamp/cliamp"  # retro Winamp-2.x-style TUI player. Local files
+                           # (MP3/WAV/FLAC/OGG/AAC/ALAC/Opus/WMA), ~58k radio
+                           # stations, YouTube/SoundCloud, spectrum visualiser,
+                           # 10-band EQ. Go binary, no daemon — fits the
+                           # "single binaries, host stays clean" rule.
+                           # Must be the FULL tap-qualified name: bare
+                           # `brew "cliamp"` resolves against homebrew-core,
+                           # where no such formula exists.
+                           # Pulls flac/libvorbis/libogg/mpg123 (required) plus
+                           # ffmpeg + yt-dlp, which the formula marks
+                           # `:recommended` — so brew installs them by default.
+                           # They are what enable AAC/ALAC/Opus/WMA and the
+                           # YouTube/SoundCloud sources; ~28 formulae all in,
+                           # all small. Drop this line and they go with it on
+                           # the next `upd --prune`.
+                           # Same self-update caveat as claude-code above: it
+                           # ships a `cliamp upgrade` subcommand that replaces
+                           # the binary in place, which will drift from the
+                           # brew-pinned version. Prefer `brew upgrade` (i.e.
+                           # `upd`) so the Brewfile stays the source of truth.
 
 # --- Fonts -------------------------------------------------------------------
 cask "font-jetbrains-mono-nerd-font"  # required by the Ghostty config

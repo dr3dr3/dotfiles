@@ -41,6 +41,7 @@ error_symbol = '[➜](bold red) '
 disabled = false
 format = '[$indicator]($style) '
 style = 'cyan bold'
+zsh_indicator = '⚡'
 bash_indicator = '🐚'
 nu_indicator = '🐢'
 fish_indicator = '🐠'
