@@ -166,7 +166,7 @@ if [[ -n "$(clean zsh -ic 'command -v devcontainer')" ]]; then
   pass "devcontainer CLI present ($(clean zsh -ic 'devcontainer --version'))"
 else
   fail "devcontainer CLI missing — the one host tool needed to boot the containers"
-  hint "npm install -g @devcontainers/cli (under mise's node)"
+  hint "brew install devcontainer   (declared in the Brewfile; NOT the npm global — mise's node bin dir shadows brew)"
 fi
 
 case ":$(clean zsh -ic 'echo $PATH'):" in
