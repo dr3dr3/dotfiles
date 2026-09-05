@@ -210,6 +210,56 @@ olrm qwen2.5-coder:32b    # evict it to reclaim memory
 
 ---
 
+## 🎵 Radio — cliamp
+
+`cliamp` (Brewfile) is a Winamp-2.x-style TUI player. `R` opens the radio pane;
+the curated shortlist appears under **Stations**, above the 58,000-entry
+[Radio Browser](https://www.radio-browser.info/) directory.
+
+| Key | Does |
+| --- | --- |
+| `R` | radio pane · `/` search · `f` favourite |
+| `v` / `Ctrl+V` / `V` | cycle visualiser · pick with live preview · full screen |
+| `?` | full keymap |
+
+The shortlist is [`radios.toml`](../.dotfiles/cliamp/.config/cliamp/radios.toml)
+(stow package `cliamp`) — indie/alternative, triple j adjacent. Radio Paradise
+streams real **FLAC at ~1442k**; the rest are the highest-bitrate feed each
+station publishes.
+
+- **Only `radios.toml` is stowed.** `config.toml` is deliberately NOT, because
+  cliamp rewrites it whenever you change visualiser or EQ in the TUI — stowing it
+  would dirty this repo on every keypress. It is also where `cliamp setup` writes
+  Spotify/Qobuz/Tidal/YouTube OAuth secrets, which must not reach a public repo.
+- **`bootstrap-mac.sh` pre-creates `~/.config/cliamp`** before stowing. Without
+  that, stow folds the directory into one symlink and cliamp writes its socket,
+  log, favourites and history into the tracked tree — see README ›
+  *Folded symlinks*.
+- **Beware low-bitrate duplicates.** The most-voted triple j entry in the
+  directory is **56k AAC+** and sounds thin; the shortlist pins the 252k feed.
+- **ABC streams need the inner HLS variant.** Their `master.m3u8` / `index.m3u8`
+  fail under ffmpeg (`Master Playlist tag found in a Media Playlist`, 0 bytes).
+  Re-derive a dead one with
+  `curl -sL '<master url>' | grep '^https' | head -1`.
+
+Audio output settings live in the local `~/.config/cliamp/config.toml`:
+
+```toml
+sample_rate = 48000       # match the MBP speakers; 44100 to pass FLAC through
+resample_quality = 4      # sinc quality 1-4
+bit_depth = 32            # float PCM for aac/alac/opus — NOT flac/mp3/ogg
+buffer_ms = 1000          # 250 default; raise to 2000 if radio stutters
+```
+
+The `OUT` line under the EQ shows what is actually active.
+
+> Verify a stream by decoding it, not by HTTP status — dead streams still return
+> 200: `ffmpeg -nostdin -v quiet -i '<url>' -t 2 -f s16le - | wc -c` (want
+> >80000). Do **not** wrap that in `timeout` — macOS has no such command, and it
+> silently reports every stream as broken.
+
+---
+
 ## 🧹 Maintenance & security
 
 Goal: stay current (90% of "vuln-free" is just being up to date) and keep the
