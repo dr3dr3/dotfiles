@@ -14,6 +14,8 @@ runtimes** (PHP, Node apps, MySQL, Redis…) live inside dev containers.
 
 | Alias | Command | Notes |
 | --- | --- | --- |
+| `devsh` | exec `bash -l` in this repo's devcontainer | **shell in — prefer this** (finds the repo from any subdir, starts it if down) |
+| `devsh <cmd>` | `devcontainer exec … <cmd>` | run one command in-container |
 | `dcu` | `devcontainer up --workspace-folder .` | boot the stack (headless) |
 | `dcb` | `… up --remove-existing-container` | rebuild from scratch |
 | `dce <cmd>` | `devcontainer exec --workspace-folder . <cmd>` | run a command in-container |
@@ -37,11 +39,50 @@ runtimes** (PHP, Node apps, MySQL, Redis…) live inside dev containers.
 
 ```bash
 cd ~/Code/rock-of-eye/<repo>   # repos live under ~/Code/<org-or-user>/<repo>
-dcu                       # boot: 3 Laravel + 3 Vue + MySQL + Redis + Mailpit + RustFS
-dcs                       # drop into the container shell
-dce php artisan migrate   # or run one-off commands from the host
+devsh                     # shell in — boots the container first if it's down
+devsh make doctor         # or run one command and come straight back
 dcb                       # rebuild fresh if the image/config changed
 ```
+
+### `devsh` — host terminal into any devcontainer
+
+Ghostty (or any host shell) attached to the *same* container VS Code uses. It is
+a script, not a shell function — `.dotfiles/bin/.local/bin/devsh`, stowed to
+`~/.local/bin` — so zsh, fish and nushell all get one copy with no duplicated
+logic.
+
+- **cwd-based, no registry.** Walks up from `$PWD` to the nearest
+  `.devcontainer/devcontainer.json`, so it works in *any* repo with a
+  devcontainer, from any subdirectory. `dcu`/`dcs` only work at the repo root —
+  from a subdir the CLI dies with a JS stack trace, because it does not search
+  parents. Not in the project? `cdc rock-of-eye/local-dev-env && devsh`.
+- **Starts a stopped container** via `devcontainer up`, then attaches. It never
+  passes `--remove-existing-container` — that recreates the container and
+  replays `postCreateCommand` (1115 lines for Rock of Eye). Use `dcb` when you
+  genuinely want a rebuild. Verified 2026-09-04: restarting reuses the same
+  container id and re-runs only `postStartCommand`.
+- **Finds the container by label**, `devcontainer.local_folder`, not by name.
+  Compose templates the name (`roe${ROE_INSTANCE}-devcontainer`) and
+  `ROE_INSTANCE` lives in the *project's* `.env`, not your host shell — so
+  guessing the name attaches to the wrong container on a multi-instance clone.
+
+> **Why `devcontainer exec` and not `docker exec`.** `remoteEnv` from
+> `devcontainer.json` is applied by the CLI at exec time, not baked into the
+> image. Bare `docker exec` silently drops it. Rock of Eye's `Makefile` gates on
+> `DEVCONTAINER` to export `COMPOSE_PROJECT_NAME` from the container's own
+> compose labels; without it compose falls back to the *directory name* and
+> `make up` addresses a different project — the "`roe-mysql` already in use"
+> collision its comments warn about, or a silent second stack. Measured
+> 2026-09-04 with `make -pn help` inside the container:
+>
+> | | `devcontainer exec` | bare `docker exec` |
+> | --- | --- | --- |
+> | `DEVCONTAINER` | `1` | unset |
+> | `COMPOSE_PROJECT_NAME` | `roe-local-dev-env` | **unset** |
+> | `OP_ACCOUNT` | `rockofeyesoftware` | unset |
+>
+> Costs ~0.5s of CLI startup. Worth it. `csh` remains the escape hatch for
+> containers that have no devcontainer.json at all.
 
 - **CLI booting ignores `customizations.vscode`** — no Intelephense, Volar,
   i18n-ally, or Linear MCP. Agents use the prebuilt **graphify codegraph** for
@@ -166,6 +207,56 @@ olrm qwen2.5-coder:32b    # evict it to reclaim memory
 > + Claude Code. It fits, but the model and the containers share the same pool —
 > **`olrm` the model when you're done** so it doesn't starve the stack. Local
 > LLM memory is not free.
+
+---
+
+## 🎵 Radio — cliamp
+
+`cliamp` (Brewfile) is a Winamp-2.x-style TUI player. `R` opens the radio pane;
+the curated shortlist appears under **Stations**, above the 58,000-entry
+[Radio Browser](https://www.radio-browser.info/) directory.
+
+| Key | Does |
+| --- | --- |
+| `R` | radio pane · `/` search · `f` favourite |
+| `v` / `Ctrl+V` / `V` | cycle visualiser · pick with live preview · full screen |
+| `?` | full keymap |
+
+The shortlist is [`radios.toml`](../.dotfiles/cliamp/.config/cliamp/radios.toml)
+(stow package `cliamp`) — indie/alternative, triple j adjacent. Radio Paradise
+streams real **FLAC at ~1442k**; the rest are the highest-bitrate feed each
+station publishes.
+
+- **Only `radios.toml` is stowed.** `config.toml` is deliberately NOT, because
+  cliamp rewrites it whenever you change visualiser or EQ in the TUI — stowing it
+  would dirty this repo on every keypress. It is also where `cliamp setup` writes
+  Spotify/Qobuz/Tidal/YouTube OAuth secrets, which must not reach a public repo.
+- **`bootstrap-mac.sh` pre-creates `~/.config/cliamp`** before stowing. Without
+  that, stow folds the directory into one symlink and cliamp writes its socket,
+  log, favourites and history into the tracked tree — see README ›
+  *Folded symlinks*.
+- **Beware low-bitrate duplicates.** The most-voted triple j entry in the
+  directory is **56k AAC+** and sounds thin; the shortlist pins the 252k feed.
+- **ABC streams need the inner HLS variant.** Their `master.m3u8` / `index.m3u8`
+  fail under ffmpeg (`Master Playlist tag found in a Media Playlist`, 0 bytes).
+  Re-derive a dead one with
+  `curl -sL '<master url>' | grep '^https' | head -1`.
+
+Audio output settings live in the local `~/.config/cliamp/config.toml`:
+
+```toml
+sample_rate = 48000       # match the MBP speakers; 44100 to pass FLAC through
+resample_quality = 4      # sinc quality 1-4
+bit_depth = 32            # float PCM for aac/alac/opus — NOT flac/mp3/ogg
+buffer_ms = 1000          # 250 default; raise to 2000 if radio stutters
+```
+
+The `OUT` line under the EQ shows what is actually active.
+
+> Verify a stream by decoding it, not by HTTP status — dead streams still return
+> 200: `ffmpeg -nostdin -v quiet -i '<url>' -t 2 -f s16le - | wc -c` (want
+> >80000). Do **not** wrap that in `timeout` — macOS has no such command, and it
+> silently reports every stream as broken.
 
 ---
 

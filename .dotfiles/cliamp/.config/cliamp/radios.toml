@@ -1,0 +1,102 @@
+# =============================================================================
+# ~/.config/cliamp/radios.toml — the shortlist (stow package: cliamp)
+#
+# Custom stations. They show up under "Stations" in cliamp's radio pane (`R`),
+# next to the built-in Radio Browser directory — so this is the curated list you
+# actually reach for, instead of searching 58,000 entries every time.
+#
+# Bias: indie / alternative, triple j adjacent, good to work to. Ordered so the
+# ones worth starting with are at the top.
+#
+# EVERY URL BELOW WAS VERIFIED by decoding 2s of real audio with ffmpeg on
+# 2026-09-05 — not just an HTTP 200, which several dead streams still return.
+# To re-check after an upstream change:
+#   ffmpeg -nostdin -v quiet -i '<url>' -t 2 -f s16le - | wc -c    # want >80000
+# NB: macOS has no `timeout` command — wrapping that in `timeout 25` silently
+# reports every stream as broken.
+#
+# Bitrates are what the directory advertises; `[320k]`-style tags in cliamp's
+# own catalog come from the same source.
+#
+# WHY ONLY THIS FILE IS STOWED, AND NOT config.toml
+# cliamp REWRITES config.toml itself — picking a visualizer or an EQ preset in
+# the TUI persists straight back to it. Stowing that would mean every idle
+# keypress dirties this repo (and `doctor-mac.sh` would flag the working tree).
+# It is also where `cliamp setup` would write Spotify/Qobuz/Tidal/YouTube OAuth
+# client secrets, which must never reach a public repo. So config.toml stays a
+# plain local file; audio-output settings for it are documented in
+# docs/CHEATSHEET.md instead. radios.toml is the opposite: hand-authored, stable,
+# and worth versioning.
+# =============================================================================
+
+# --- Lossless, no ads, hand-curated — the work-friendly ones -----------------
+# Radio Paradise streams real FLAC at ~1442 kbps. cliamp links libFLAC/libogg,
+# so these decode natively at full precision (bit_depth in config.toml does not
+# apply to them — see the note there).
+
+[[station]]
+name = "RP Mellow (FLAC) — work"
+url = "http://stream.radioparadise.com/mellow-flacm"
+
+[[station]]
+name = "RP Beyond (FLAC) — ambient"
+url = "http://stream.radioparadise.com/beyond-flacm"
+
+[[station]]
+name = "RP Main (FLAC)"
+url = "https://stream.radioparadise.com/flacm"
+
+[[station]]
+name = "RP Global (FLAC)"
+url = "http://stream.radioparadise.com/global-flacm"
+
+# --- Australian --------------------------------------------------------------
+# The ABC's HLS needs care. Radio Browser lists these as `master.m3u8` /
+# `index.m3u8`, and BOTH FAIL under ffmpeg with "Master Playlist tag found in a
+# Media Playlist" — 0 bytes of audio. The inner 252k variant plays fine, so that
+# is what is used here. Consequence: if a variant ever 404s, re-derive it with
+#   curl -sL '<master url>' | grep '^https' | head -1
+# and paste the first (252k, mp4a.40.2) line. The second line is 140k HE-AAC.
+# Also note: ABC's direct non-HLS endpoints (live-radio01.mediahubaustralia.com)
+# return 403 from here, so HLS is the only route.
+#
+# Avoid the *popular* triple j entries in the directory — the most-voted one has
+# 1249 votes and is 56k AAC+, which is why it sounds thin. These are 252k.
+
+[[station]]
+name = "triple j (NSW) 252k"
+url = "https://mediaserviceslive.akamaized.net/hls/live/2109456/triplejnsw/v0-221.m3u8"
+
+[[station]]
+name = "Double J (QLD) 252k"
+url = "https://mediaserviceslive.akamaized.net/hls/live/2108586/doublejqld/v0-221.m3u8"
+
+[[station]]
+name = "PBS FM Melbourne 192k"
+url = "https://playerservices.streamtheworld.com/api/livestream-redirect/3PBS_FMAACHIGH.m3u8"
+
+# --- Indie / alternative, elsewhere -----------------------------------------
+
+[[station]]
+name = "KCRW Eclectic 24 256k"
+url = "https://streams.kcrw.com/e24_aac"
+
+[[station]]
+name = "KEXP Seattle 162k"
+url = "https://kexp.streamguys1.com/kexp160.aac"
+
+[[station]]
+name = "NTS 1 (London) 256k"
+url = "http://stream-relay-geo.ntslive.net/stream"
+
+[[station]]
+name = "NTS 2 (London) 256k"
+url = "http://stream-relay-geo.ntslive.net/stream2"
+
+[[station]]
+name = "KUTX Austin 192k"
+url = "https://streams.kut.org/4428_192.mp3"
+
+[[station]]
+name = "SomaFM Indie Pop Rocks 128k"
+url = "https://ice2.somafm.com/indiepop-128-aac"
