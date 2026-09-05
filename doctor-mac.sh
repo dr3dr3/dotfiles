@@ -106,9 +106,28 @@ check_link ".config/starship.toml"  "$STOW_DIR/starship"
 check_link ".config/ghostty"        "$STOW_DIR/ghostty"
 check_link ".config/zellij"         "$STOW_DIR/zellij"
 check_link ".config/mise"           "$STOW_DIR/mise"
+check_link ".local/bin/devsh"       "$STOW_DIR/bin"
+check_link ".config/cliamp/radios.toml" "$STOW_DIR/cliamp"
 # macOS-only bridge — nushell does not read ~/.config/nushell here.
 check_link "Library/Application Support/nushell/config.nu" "$STOW_DIR/nushell"
 check_link "Library/Application Support/nushell/env.nu"    "$STOW_DIR/nushell"
+
+# ~/.config/cliamp must be a REAL directory, never a stow-folded symlink.
+# This needs its own check because check_link above CANNOT catch it: if the
+# directory were folded into the repo, radios.toml would still resolve into the
+# repo and that check would happily pass. Meanwhile cliamp would be writing
+# cliamp.sock, cliamp.log, favorites.toml and history.toml into the tracked
+# tree. bootstrap-mac.sh guards this by mkdir-ing the directory before stowing;
+# nothing verified it until now.
+if [[ -L "$HOME/.config/cliamp" ]]; then
+  fail ".config/cliamp is a FOLDED symlink — cliamp writes runtime state into the repo"
+  hint "rm ~/.config/cliamp && mkdir -p ~/.config/cliamp && (cd $STOW_DIR && stow --restow -t \"$HOME\" cliamp)"
+  hint "then check 'git status' for cliamp.sock / favorites.toml / history.toml that landed in the repo"
+elif [[ -d "$HOME/.config/cliamp" ]]; then
+  pass ".config/cliamp is a real dir (stow did not fold it)"
+else
+  fail ".config/cliamp missing — run ./bootstrap-mac.sh"
+fi
 
 # =============================================================================
 section "Packages match the Brewfile"
