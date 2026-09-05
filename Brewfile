@@ -33,6 +33,10 @@
 
 # --- Taps --------------------------------------------------------------------
 tap "dmno-dev/tap"          # varlock (secrets/env loader)
+tap "bjarneo/cliamp"        # cliamp (terminal music player) — upstream's own tap;
+                            # not in homebrew-core. Third-party, like the two
+                            # below: the formula pulls a signed prebuilt binary
+                            # from the project's GitHub releases (sha256-pinned).
 tap "domt4/autoupdate"      # `brew autoupdate` launchd job (background upgrades).
                             # Declared so `brew bundle cleanup --force` /
                             # `update-mac.sh --prune` don't untap it and silently
@@ -197,6 +201,28 @@ brew "mas"                  # Mac App Store CLI — declarative App Store instal
 brew "osv-scanner"          # scan composer.lock / package-lock.json for CVEs.
                             # Run against the project repos (where real vulns
                             # live), not just the host. See update-mac.sh + docs.
+
+# --- Terminal music ----------------------------------------------------------
+brew "bjarneo/cliamp/cliamp"  # retro Winamp-2.x-style TUI player. Local files
+                           # (MP3/WAV/FLAC/OGG/AAC/ALAC/Opus/WMA), ~58k radio
+                           # stations, YouTube/SoundCloud, spectrum visualiser,
+                           # 10-band EQ. Go binary, no daemon — fits the
+                           # "single binaries, host stays clean" rule.
+                           # Must be the FULL tap-qualified name: bare
+                           # `brew "cliamp"` resolves against homebrew-core,
+                           # where no such formula exists.
+                           # Pulls flac/libvorbis/libogg/mpg123 (required) plus
+                           # ffmpeg + yt-dlp, which the formula marks
+                           # `:recommended` — so brew installs them by default.
+                           # They are what enable AAC/ALAC/Opus/WMA and the
+                           # YouTube/SoundCloud sources; ~28 formulae all in,
+                           # all small. Drop this line and they go with it on
+                           # the next `upd --prune`.
+                           # Same self-update caveat as claude-code above: it
+                           # ships a `cliamp upgrade` subcommand that replaces
+                           # the binary in place, which will drift from the
+                           # brew-pinned version. Prefer `brew upgrade` (i.e.
+                           # `upd`) so the Brewfile stays the source of truth.
 
 # --- Fonts -------------------------------------------------------------------
 cask "font-jetbrains-mono-nerd-font"  # required by the Ghostty config
