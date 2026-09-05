@@ -6,7 +6,7 @@ runtimes** (PHP, Node apps, MySQL, Redis…) live inside dev containers.
 
 - Setup: [`bootstrap-mac.sh`](../bootstrap-mac.sh) · Packages: [`Brewfile`](../Brewfile) · Tool versions: [`mise config`](../.dotfiles/mise/.config/mise/config.toml)
 - Aliases: [`aliases.zsh`](../.dotfiles/zsh/.config/zsh/aliases.zsh) · [`agents.zsh`](../.dotfiles/zsh/.config/zsh/agents.zsh)
-- Maintenance: [`update-mac.sh`](../update-mac.sh)
+- Maintenance: [`update-mac.sh`](../update-mac.sh) · Host assertions: [`doctor-mac.sh`](../doctor-mac.sh)
 
 ---
 
@@ -31,7 +31,7 @@ runtimes** (PHP, Node apps, MySQL, Redis…) live inside dev containers.
 | `roe` | `code roe-local-dev.code-workspace` | **JIT editor — never bare `code .`** |
 | `ll` / `lt` | `eza -lah --git` / tree | listings |
 | `lg` | `lazygit` | git TUI |
-| `upd` | `update-mac.sh` | update + audit the host |
+| `upd` | `update-mac.sh` | update + audit + assert the host |
 
 ---
 
@@ -268,13 +268,41 @@ host == `Brewfile`.
 ### Weekly (run `upd`, or [`update-mac.sh`](../update-mac.sh))
 
 ```bash
-upd                 # update brew + casks, prune cruft, check drift, scan CVEs
+upd                 # update brew + casks, prune cruft, check drift, scan CVEs, assert host
 upd --prune         # also remove anything NOT in the Brewfile (strict clean host)
 ```
 
 What it does: `brew update && brew upgrade --greedy` → `brew bundle check`
 (drift) → `brew autoremove` + `cleanup` → `npm update -g` → report agent
-versions → **`osv-scanner`** over your repos → list macOS updates.
+versions → **`osv-scanner`** over your repos → list macOS updates →
+**`doctor-mac.sh`** (below). Exits non-zero if doctor finds failures.
+
+### Is the host actually correct? (`./doctor-mac.sh`)
+
+```bash
+./doctor-mac.sh      # full report
+./doctor-mac.sh -q   # only warnings + failures
+```
+
+Read-only. Steps 1–7 of `upd` answer *"is everything up to date?"*; this answers
+the different and more useful question *"does the machine actually do what this
+repo says?"* — which is where the real problems have hidden:
+
+| Asserts | Because |
+|---|---|
+| zsh/fish/nu each **load their own config** | the nushell config had never loaded on macOS, silently |
+| every stow link **resolves into the repo** | a real file can shadow a stow link without complaint |
+| `brew bundle check` + nothing undeclared | undeclared packages are what `--prune` silently deletes |
+| the **working tree is clean** | three installers have written into this repo via folded symlinks |
+| all tracked files are **LF** | CRLF drifted in three times before `.gitattributes` |
+| node comes **from mise**, `devcontainer` exists, `~/.local/bin` on PATH | a stray brew/nvm node shadowing mise is invisible otherwise |
+| ollama is **bound to all interfaces** | bound to loopback it is unreachable from containers |
+| `brew autoupdate` **actually runs** | an untrusted tap breaks the CLI while the launchd job keeps working |
+
+> Each check is verified to *fail* when it should, not just pass when things are
+> fine — a check that cannot fail is worse than no check, because it reads as
+> reassurance. Failures mean the repo claims something the machine doesn't do;
+> warnings are advisory (an idle ollama is fine).
 
 ### Automate background Homebrew upgrades (set once)
 

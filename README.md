@@ -39,8 +39,10 @@ dev containers, provisioned by [dotai](https://github.com/dr3dr3/dotai); the
 via the mounted 1Password agent — no hand-rolled key injection.
 
 📖 **Full command + maintenance reference:** [`docs/CHEATSHEET.md`](docs/CHEATSHEET.md)
-— daily aliases, devcontainer workflow, Ghostty⇄container usage, secrets, and
-the keep-it-current/CVE-scan routine ([`update-mac.sh`](update-mac.sh)).
+— daily aliases, devcontainer workflow, Ghostty⇄container usage, secrets, the
+keep-it-current/CVE-scan routine ([`update-mac.sh`](update-mac.sh)), and
+[`doctor-mac.sh`](doctor-mac.sh) — read-only assertions that the live host
+actually matches what this repo declares.
 
 Handy aliases (see [`aliases.zsh`](.dotfiles/zsh/.config/zsh/aliases.zsh) /
 [`agents.zsh`](.dotfiles/zsh/.config/zsh/agents.zsh)) plus
