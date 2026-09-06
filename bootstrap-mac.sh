@@ -5,8 +5,8 @@
 # Idempotent: safe to re-run. It will
 #   1. install Homebrew (if missing)
 #   2. install everything in ./Brewfile
-#   3. stow the macOS dotfiles (zsh, ghostty, starship, fish, nushell, zellij,
-#      mise, bin, cliamp) into ~
+#   3. stow the macOS dotfiles (zsh, ghostty, herdr, Karabiner, starship, fish,
+#      nushell, zellij, mise, bin, cliamp) into ~
 #   4. set up host Node via mise (CLI tooling only)
 #   5. print the manual follow-up steps that can't be automated
 #
@@ -26,7 +26,7 @@ STOW_DIR="$REPO_DIR/.dotfiles"
 # drivers with the same host wiring. (vim stays container-only.)
 # `bin` ships host scripts to ~/.local/bin (already on PATH via env.zsh) — one
 # copy that zsh, fish and nushell all pick up, instead of three shell functions.
-STOW_PACKAGES=(zsh ghostty starship fish nushell zellij mise bin cliamp)
+STOW_PACKAGES=(zsh ghostty herdr karabiner starship fish nushell zellij mise bin cliamp)
 
 # --- pretty logging ----------------------------------------------------------
 info()  { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
@@ -62,7 +62,10 @@ ok "Brewfile applied."
 # favorites.toml and history straight into the tracked tree (see README ›
 # "Folded symlinks"). With the dir already there, stow links the individual
 # files instead and the runtime junk stays in ~.
-mkdir -p "$HOME/.config/cliamp"
+mkdir -p \
+  "$HOME/.config/cliamp" \
+  "$HOME/.config/herdr" \
+  "$HOME/.config/karabiner/assets/complex_modifications"
 info "Stowing dotfiles: ${STOW_PACKAGES[*]}"
 cd "$STOW_DIR"
 # Re-link idempotently. Plain --restow is a no-op on re-runs (targets are already
@@ -161,6 +164,12 @@ cat <<'EOF'
   Ghostty
     • Set Ghostty as your default terminal; the config is already linked.
     • Install a Nerd Font if missing:  brew install --cask font-jetbrains-mono-nerd-font
+
+  Herdr
+    • In Karabiner-Elements, enable the predefined rule:
+      "Ghostty: Caps Lock sends Ctrl+Space; Shift+Caps Lock toggles Caps Lock".
+    • Run `herdr` on the host, or `devherd` from a project to run it in-container.
+    • Full setup and keymap: docs/HERDR.md
 
   Default shell
     • If not already zsh:  chsh -s /bin/zsh

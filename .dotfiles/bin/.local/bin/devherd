@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Attach Herdr inside the current project's devcontainer.
+# `devsh` starts the container and preserves its devcontainer remoteEnv.
+
+set -euo pipefail
+
+exec devsh bash -lc 'cd /workspace && exec herdr "$@"' -- "$@"

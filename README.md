@@ -1,11 +1,16 @@
 # André Dreyer's Dotfiles
 
 A collection of personal configuration files for development tools and shells.
-Two target environments share one Stow-managed `.dotfiles/` tree:
+The same tracked terminal configuration supports four environments:
 
 - **macOS host** (Apple Silicon) — terminal-first, orchestration-oriented dev
   machine. See [macOS Setup](#-macos-setup).
 - **Ubuntu 24.04 dev containers** — the original target. See [Dev Container Usage](#-dev-container-usage).
+- **Omarchy Linux** — the same Herdr keymap, plus an opt-in keyd Caps Lock remap.
+- **Windows 11** — native Herdr setup through PowerShell.
+
+Herdr setup and its Omarchy-compatible keymap are documented in
+[`docs/HERDR.md`](docs/HERDR.md).
 
 ## 🍎 macOS Setup
 
@@ -51,6 +56,7 @@ Handy aliases (see [`aliases.zsh`](.dotfiles/zsh/.config/zsh/aliases.zsh) /
 | Alias | Expands to |
 | --- | --- |
 | `devsh` / `devsh <cmd>` | host terminal into this repo's devcontainer — works from any subdir, starts it if down |
+| `devherd` | start or attach to Herdr inside the current repo's devcontainer |
 | `dcu` / `dcb` / `dce` | `devcontainer up` / rebuild / `exec` (current folder) |
 | `cc` / `cca` / `cx` | Claude Code (personal / corporate-API) · Codex — in-container |
 | `oll` / `olp` / `olr` | `ollama list` / `ps` / `run` |
@@ -97,6 +103,8 @@ Dotfile configs live in `.dotfiles/` and are organised as [GNU Stow](https://www
                  see "Folded symlinks" below.
   zsh/         → ~/.zshrc + ~/.config/zsh/   (macOS host default shell)
   ghostty/     → ~/.config/ghostty/config    (macOS terminal)
+  herdr/       → ~/.config/herdr/config.toml (portable Omarchy-style keymap)
+  karabiner/   → ~/.config/karabiner/assets/ (macOS Caps Lock → Herdr prefix rule)
   fish/        → ~/.config/fish/             (Fish shell — host + containers)
   nushell/     → ~/.config/nushell/          (Nushell — host + containers)
                ↳ macOS ONLY: nushell reads ~/Library/Application Support/
@@ -109,10 +117,10 @@ Dotfile configs live in `.dotfiles/` and are organised as [GNU Stow](https://www
   vim/         → ~/.vimrc                     (Vim config)
 ```
 
-On the **macOS host**, `bootstrap-mac.sh` stows `zsh ghostty starship fish nushell zellij mise`,
+On the **macOS host**, `bootstrap-mac.sh` stows `zsh ghostty herdr karabiner starship fish nushell zellij mise`,
 and Fish + Nushell carry the same host wiring as zsh (mise, 1Password agent,
 fzf/zoxide, the devcontainer/agent aliases). In **containers**, `install.sh`
-stows `fish nushell starship vim`.
+stows `fish nushell starship vim herdr` and installs Herdr if needed.
 
 To apply a single package manually: `cd .dotfiles && stow --target "$HOME" fish`
 

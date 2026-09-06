@@ -36,8 +36,13 @@ else
   echo "Warning: could not determine Nushell data directory; skipping Starship/Nushell config"
 fi
 
-# Apply dotfiles via stow from the packages directory
+# Herdr is terminal tooling, so its binary and config are owned here rather
+# than by dotai. Run this before Stow: it backs up a pre-existing Herdr config
+# before the broad --adopt pass can absorb it into the tracked package.
 DOTFILES_DIR="$(cd "$(dirname "$0")" && pwd)"
+bash "$DOTFILES_DIR/scripts/setup-herdr.sh"
+
+# Apply dotfiles via stow from the packages directory
 cd "$DOTFILES_DIR/.dotfiles"
 stow --delete --target "$HOME" */
 stow --adopt --target "$HOME" */

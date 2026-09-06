@@ -93,9 +93,10 @@ ls -ld ~/Code ~/host-share                                 # folders exist
 
 ---
 
-## Phase 2 — Per-project agents (dotai) · once per project
+## Phase 2 — Per-project terminal + agents · once per project
 
-Agents are installed **inside** each project's dev container. Two cases:
+Herdr comes from **dotfiles**; agents come from **dotai**. Both are installed
+inside each project's dev container. Two cases:
 
 ### A. The container needs the host wiring
 
@@ -113,7 +114,9 @@ dcu                                   # devcontainer up (boot the stack)
 dcs                                   # shell into the container
 
 # INSIDE the container (project is at /workspace):
+git clone https://github.com/dr3dr3/dotfiles.git /workspace/dotfiles
 git clone https://github.com/dr3dr3/dotai.git /workspace/.ai/dotai
+bash /workspace/dotfiles/scripts/setup-herdr.sh
 bash /workspace/.ai/dotai/setup.sh          # Claude Code + Codex + varlock + Pi + gh
 bash /workspace/.ai/dotai/scripts/setup.sh  # commands / skills / MCP wiring
 claude auth login                           # or resolve creds via op/varlock
@@ -126,6 +129,7 @@ exit
 In a Ghostty pane **in the project folder**:
 
 ```bash
+devherd   # Herdr in the container; start `claude` in one of its panes
 cc        # Claude Code (personal subscription) in the container
 cca       # Claude Code (corporate-API profile)
 cx        # Codex
