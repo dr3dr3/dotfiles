@@ -16,6 +16,7 @@ runtimes** (PHP, Node apps, MySQL, Redis…) live inside dev containers.
 | --- | --- | --- |
 | `devsh` | exec `bash -l` in this repo's devcontainer | **shell in — prefer this** (finds the repo from any subdir, starts it if down) |
 | `devsh <cmd>` | `devcontainer exec … <cmd>` | run one command in-container |
+| `devherd` | `devsh … herdr` | start/attach Herdr inside the current devcontainer |
 | `dcu` | `devcontainer up --workspace-folder .` | boot the stack (headless) |
 | `dcb` | `… up --remove-existing-container` | rebuild from scratch |
 | `dce <cmd>` | `devcontainer exec --workspace-folder . <cmd>` | run a command in-container |
@@ -143,9 +144,10 @@ terminfo, so `clear`, `tput`, and TUIs error inside them. Two fixes:
 
 ## 🤖 AI agents — containers by default, host copies as an exception
 
-Project work runs the agents **inside** the project's dev container, installed
-by [dotai](https://github.com/dr3dr3/dotai); the `cc`/`cca`/`cx`/`pi` wrappers
-just `devcontainer exec` into it. That keeps agent activity on project code
+Project work runs the agents **inside** the project's dev container. Terminal
+tooling (including Herdr) comes from this dotfiles repo; AI tooling comes from
+[dotai](https://github.com/dr3dr3/dotai). The `devherd`, `cc`/`cca`/`cx`/`pi`
+wrappers use `devcontainer exec`, keeping agent activity on project code
 sandboxed.
 
 Host copies of `claude`, `codex` and `herdr` are also installed (declared in
@@ -156,10 +158,13 @@ container ones.
 
 ```bash
 # one-time per project, from inside the container (dcs):
+git clone https://github.com/dr3dr3/dotfiles.git /workspace/dotfiles
 git clone https://github.com/dr3dr3/dotai.git /workspace/.ai/dotai
+bash /workspace/dotfiles/scripts/setup-herdr.sh
 bash /workspace/.ai/dotai/setup.sh          # installs Claude/Codex/Pi + skills
 
 # then, from the host, in the project folder — CONTAINER agents:
+devherd      # Herdr in the container; run `claude` in a pane
 cc           # Claude Code (personal) in the container
 cca          # Claude Code (corporate-API profile)
 cx           # Codex
@@ -490,7 +495,7 @@ cd ~/Code/dr3dr3/dotfiles
 git pull
 ./bootstrap-mac.sh            # idempotent: re-stows, installs anything new
 # After editing a config, re-link just the dotfiles:
-cd .dotfiles && stow --restow --target "$HOME" zsh ghostty starship fish nushell zellij mise
+cd .dotfiles && stow --restow --target "$HOME" zsh ghostty herdr karabiner starship fish nushell zellij mise bin cliamp
 ```
 
 > **After installing any app with shell integration, run `git status` here.**

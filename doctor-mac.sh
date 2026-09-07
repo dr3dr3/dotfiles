@@ -107,6 +107,9 @@ check_link ".config/ghostty"        "$STOW_DIR/ghostty"
 check_link ".config/zellij"         "$STOW_DIR/zellij"
 check_link ".config/mise"           "$STOW_DIR/mise"
 check_link ".local/bin/devsh"       "$STOW_DIR/bin"
+check_link ".local/bin/devherd"     "$STOW_DIR/bin"
+check_link ".config/herdr/config.toml" "$STOW_DIR/herdr"
+check_link ".config/karabiner/assets/complex_modifications/herdr-caps-lock.json" "$STOW_DIR/karabiner"
 check_link ".config/cliamp/radios.toml" "$STOW_DIR/cliamp"
 # macOS-only bridge — nushell does not read ~/.config/nushell here.
 check_link "Library/Application Support/nushell/config.nu" "$STOW_DIR/nushell"
@@ -127,6 +130,14 @@ elif [[ -d "$HOME/.config/cliamp" ]]; then
   pass ".config/cliamp is a real dir (stow did not fold it)"
 else
   fail ".config/cliamp missing — run ./bootstrap-mac.sh"
+fi
+
+# Herdr parses the active config without starting or attaching to a session.
+if clean herdr config check | grep -q "config: ok"; then
+  pass "Herdr config parses (Omarchy Ctrl+Space keymap)"
+else
+  fail "Herdr config is invalid"
+  hint "run: herdr config check"
 fi
 
 # =============================================================================

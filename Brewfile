@@ -117,6 +117,8 @@ brew "zellij"              # terminal multiplexer — persistent sessions that
                             # survive Ghostty restarts/detach + reproducible
                             # layouts. Config + dev layout in dotfiles/zellij.
                             # (Reattach with `zj`; 2x2 workspace with `zjd`.)
+cask "karabiner-elements"  # Ghostty-scoped Caps Lock → Ctrl+Space remap for
+                            # Herdr; rule lives in the karabiner stow package.
 
 # --- AI coding agents (host copies — deliberate exception) -------------------
 # The default is still container-first: agents are installed *inside* the dev
