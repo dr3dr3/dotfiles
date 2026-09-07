@@ -97,5 +97,128 @@ dotfiles installs Herdr first, then dotai installs Claude Code and registers
 Herdr's Claude integration. Other developers who do not clone these repos get
 neither personal layer.
 
-From the host, run `devherd` in the local-dev-env checkout. Inside a Herdr pane,
-start Claude normally with `claude`.
+From a plain host terminal, run `devherd` in the local-dev-env checkout. Inside
+a container Herdr pane, start Claude normally with `claude`. See the workflow
+comparison below before launching `devherd` from inside host Herdr.
+
+## Choosing where Herdr runs
+
+For container development and agent workflows, use a **plain Ghostty tab**
+and run `devherd` from the project's host checkout. Keep host Herdr in another
+terminal tab when needed. This gives each environment one Herdr UI without
+nested keymaps.
+
+`devherd` wraps `devsh bash -lc 'cd /workspace && exec herdr "$@"'`,
+forwarding its arguments. It starts or attaches to container Herdr; it is not
+Herdr's SSH remote-attach mode. The simpler `devsh herdr` follows the same
+architecture, but does not explicitly change the working directory or start
+a login shell.
+
+| Trade-off | Ghostty → devsh herdr | Host Herdr → devsh | Host Herdr → devsh herdr |
+| --- | --- | --- | --- |
+| Herdr servers | Container | Mac | Both |
+| New panes start in | Container | Mac; enter the container with devsh | The environment of the Herdr creating them |
+| Container agents managing panes | Can use container Herdr directly | Need an explicit bridge to host Herdr | Can manage inner Herdr; outer remains separate |
+| Mixing host and container tools | Separate terminal tabs/windows | One Herdr workspace | One terminal, two workspace hierarchies |
+| Input and UI | One keymap and UI | One keymap and UI | Separate keymaps required; two UIs |
+| Container stop/rebuild | Container server and live processes stop | Host panes remain; container connections end | Outer remains; inner server and processes stop |
+| Complexity | Low | Low to moderate | Highest |
+
+### 1. Container Herdr: default for container work
+
+From a plain Ghostty shell in the project's host checkout:
+
+```bash
+devherd
+# Or:
+devsh herdr
+```
+
+New Herdr panes run inside the container with its tools, paths, dependencies,
+and credentials. Container agents can reach the same Herdr server to create
+and manage panes. Detaching leaves the server and its processes running while
+the container remains running.
+
+Host work belongs in a separate terminal tab/window. Stopping or rebuilding
+the container ends its live processes: persisted configuration or a restored
+session layout does not preserve running processes through a restart.
+
+### 2. Host Herdr: convenient for mixed host/container work
+
+Launch `herdr` on the Mac, then run `devsh` in each pane that needs a
+container shell. Do not launch another Herdr in those shells.
+
+The host server owns the outer pane terminals, but commands entered through
+`devsh` execute inside the container. One workspace can mix Mac tools and
+container tooling with one keymap. Host panes remain when the container stops;
+run `devsh` again after it is available.
+
+New panes start on the host, so entering the container is an extra step unless
+you configure pane launch commands. Container agents do not automatically
+have access to the host Herdr socket. Choose this option when mixed host work
+matters more than container-side Herdr pane orchestration.
+
+### 3. Nested Herdr: both environments in one terminal
+
+Launch host Herdr, then run `devherd` (or `devsh herdr`) in an outer pane.
+The two servers remain independent. Each has its own workspaces, panes, focus,
+and detach operation. Detaching the outer client leaves both layers running
+provided the host and container remain running.
+
+This is useful when both environments need their own pane orchestration in
+one terminal, but adds navigation and input complexity. Zooming the outer pane
+can reduce visual clutter without removing the two layers.
+
+Herdr normally sets `HERDR_ENV=1` in its panes and refuses nested launches
+unless the inner config enables:
+
+```toml
+[experimental]
+allow_nested = true
+```
+
+In the checked local-dev-env setup, `devsh` does not forward that marker, so
+the container launch does not detect nesting. Explicitly forwarding the marker
+and enabling the setting would make nesting intentional. It would **not**
+connect the servers, share workspaces, bridge sockets, or solve input conflicts.
+That change is not required for the current nested launch to work.
+
+If maintaining nesting, separate both the prefix and direct shortcuts. This
+repo's shared config uses `Ctrl+Space` plus bindings such as `Alt+Left/Right`
+and `Ctrl+Alt+Arrow`. Installing it unchanged in both environments lets outer
+Herdr intercept inner shortcuts. A different host prefix alone is insufficient.
+Mouse interaction can also be intercepted by the outer UI.
+
+### SSH thin client: a separate alternative
+
+`herdr --remote <ssh-target>` runs a local thin client against a remote Herdr
+server. Launch it from a plain terminal for one UI, with panes on the remote
+side. Local keybindings are used by default; `--remote-keybindings server`
+selects the server's bindings. It can bridge local desktop features such as
+image clipboard paste.
+
+This requires working SSH access to the container and adds SSH setup and
+maintenance. Forwarding the nesting marker through `devsh` does not provide
+this mode. See [Herdr remote access](https://herdr.dev/docs/persistence-remote/).
+
+### Verified setup snapshot — 2026-09-07
+
+These observations describe the checked Mac/local-dev-env installation, not
+requirements for every machine:
+
+- Both host and container ran Herdr 0.8.2.
+- The host had no `~/.config/herdr/config.toml`, so its prefix was the default
+  `Ctrl+B`.
+- Container config linked to
+  `/workspace/dotfiles/.dotfiles/herdr/.config/herdr/config.toml`, using
+  `Ctrl+Space`.
+- A `HERDR_ENV=1` launch on the host was refused. Through `devsh`, both that
+  marker and a separate test variable arrived unset; configured
+  `DEVCONTAINER=1` was present. This is specific to the current configuration,
+  not a claim that devcontainer CLI can never forward host variables.
+- The container had no `sshd` on PATH and no TCP port 22 listener.
+- `bootstrap-mac.sh` includes the `herdr` Stow package. Applying that bootstrap
+  installs the shared keymap on the host too. A Git commit or merge alone does
+  not activate it.
+
+Recheck configuration before relying on the currently different prefixes.

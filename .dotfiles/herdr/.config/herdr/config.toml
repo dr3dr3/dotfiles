@@ -1,3 +1,4 @@
+onboarding = false
 # Herdr keymap shared by macOS, Linux, Windows, and devcontainers.
 # Mirrors Omarchy's tmux/Herdr muscle memory. Keep this file portable:
 # host-specific shells and launch commands belong in host configuration.
