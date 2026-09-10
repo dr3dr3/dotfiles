@@ -160,6 +160,20 @@ A related trap, same root cause: a tool that *regenerates* its config on every
 start can feed on its own output. See the `mise activate nu` note in
 `nushell/config.nu` for why nushell deliberately avoids that pattern.
 
+## 🛠 Tools
+
+`tools/` holds personal command-line tools that are **not** dotfiles. They are not stow
+packages — each installs a launcher into `~/.local/bin` instead — and `install.sh` runs
+each tool's own installer at the end of setup.
+
+| Tool | What it does |
+| ---- | ------------ |
+| [`diagram`](tools/diagram) | Turns a small YAML spec into a laid-out, editable Excalidraw file. ELK does the layout and a geometry check fails the build on overlaps, adrift arrows or clipped labels. |
+
+⚠️ The launcher lands in `~/.local/bin`, which **does not survive a dev container
+rebuild** — nothing re-runs `install.sh`, so re-run `tools/diagram/install.sh` after one.
+A `diagram: command not found` in a fresh container means exactly this.
+
 ## 🐳 Target Environment
 
 - **Base Image**: Ubuntu 24.04

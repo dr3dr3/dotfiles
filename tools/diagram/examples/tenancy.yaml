@@ -1,0 +1,75 @@
+title: Request-time tenant resolution
+subtitle: How a portal request ends up on the right tenant database
+theme: light
+direction: RIGHT
+
+groups:
+  - id: portals
+    label: Portals — S3 + CloudFront
+  - id: backends
+    label: Backends
+
+nodes:
+  - id: auth0
+    label: Auth0
+    sub: OAuth2 + PKCE
+    style: external
+
+  - id: aio
+    label: All-in-One Portal
+    sub: Vue 3 · Quasar · Vuex ORM
+    style: frontend
+    group: portals
+  - id: client
+    label: Client Portal
+    sub: Vue 3 · Quasar · Pinia ORM
+    style: frontend
+    group: portals
+
+  - id: sso
+    label: rock-of-eye-sso
+    sub: Laravel 11 · identity broker
+    style: service
+    group: backends
+  - id: api
+    label: rock-of-eye-api
+    sub: Laravel 10 · 28 modules
+    style: service
+    group: backends
+
+  - id: bootstrap
+    label: BootstrapTenant
+    sub: middleware
+    style: accent
+    shape: diamond
+    group: backends
+
+  - id: tenantdb
+    label: Tenant database
+    sub: one isolated DB per tenant
+    style: datastore
+
+edges:
+  - from: aio
+    to: sso
+    label: redirect to log in, receive SSO payload
+    arrow: both
+    emphasis: true
+  - from: sso
+    to: auth0
+    label: authorization code
+    style: dashed
+  - from: aio
+    to: api
+    label: "Bearer + X-ROE-SSO-KEY"
+    emphasis: true
+  - from: client
+    to: api
+    label: "Bearer + X-ROE-SSO-KEY"
+  - from: api
+    to: bootstrap
+    label: every tenant-scoped request
+  - from: bootstrap
+    to: tenantdb
+    label: decrypt payload, switch connection
+    emphasis: true
