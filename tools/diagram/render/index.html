@@ -1,0 +1,40 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>diagram preview</title>
+    <style>
+      body { margin: 0; padding: 24px; background: #d8d8d8; font-family: system-ui, sans-serif; }
+      #out svg { background: #fff; box-shadow: 0 2px 16px rgba(0, 0, 0, .28); max-width: 100%; height: auto; }
+      #err { color: #b00; font-family: ui-monospace, monospace; white-space: pre-wrap; }
+    </style>
+  </head>
+  <body>
+    <div id="err"></div>
+    <div id="out"></div>
+    <script>
+      window.EXCALIDRAW_ASSET_PATH = '/assets/';
+      window.__ERRS__ = [];
+      addEventListener('error', (e) => window.__ERRS__.push(String(e.message)));
+    </script>
+    <script src="/bundle.js"></script>
+    <script>
+      (async () => {
+        try {
+          const scene = await (await fetch('/scene.excalidraw')).json();
+          const svg = await ExcalidrawLib.exportToSvg({
+            elements: scene.elements,
+            appState: { ...scene.appState, exportBackground: true, exportWithDarkMode: false },
+            files: scene.files || {},
+            exportPadding: 28,
+          });
+          document.getElementById('out').appendChild(svg);
+          window.__READY__ = true;
+        } catch (e) {
+          document.getElementById('err').textContent = 'RENDER FAILED: ' + (e?.stack || e);
+          window.__READY__ = 'error';
+        }
+      })();
+    </script>
+  </body>
+</html>

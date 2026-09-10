@@ -47,4 +47,7 @@ cd "$DOTFILES_DIR/.dotfiles"
 stow --delete --target "$HOME" */
 stow --adopt --target "$HOME" */
 
+# Personal tools (not stow packages — they install a launcher into ~/.local/bin)
+bash "$DOTFILES_DIR/tools/diagram/install.sh"
+
 exit 0
