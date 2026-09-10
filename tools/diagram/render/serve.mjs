@@ -26,13 +26,28 @@ const MIME = {
 };
 
 export function serve(scenePath, port = 8765) {
-  if (!existsSync(BUNDLE)) {
+  const assets = join(ROOT, 'node_modules/@excalidraw/excalidraw/dist/excalidraw-assets');
+
+  // Two artifacts with DIFFERENT LIFETIMES, so both are checked.
+  //
+  // bundle.js is built and survives anything. The fonts live in node_modules and
+  // do not: build.sh installs them with `npm install --no-save`, and the repo's
+  // installer later runs a plain `npm install`, which prunes whatever is not in
+  // package.json. Guarding on the bundle alone therefore reports ready while
+  // /assets/* 404s — Excalidraw silently falls back to system fonts, text metrics
+  // stop matching the real editor, and the preview quietly lies about whether a
+  // label fits. That is the exact failure this tool exists to prevent, so the
+  // guard checks the artifact that actually goes missing.
+  const missing = [
+    !existsSync(BUNDLE) && 'the bundle',
+    !existsSync(assets) && 'the Excalidraw fonts',
+  ].filter(Boolean);
+
+  if (missing.length) {
     throw new Error(
-      `preview bundle missing — run:  cd ${ROOT} && npm run build:render`,
+      `preview is missing ${missing.join(' and ')} — run:  cd ${ROOT} && npm run build:render`,
     );
   }
-
-  const assets = join(ROOT, 'node_modules/@excalidraw/excalidraw/dist/excalidraw-assets');
 
   const server = createServer(async (req, res) => {
     const url = normalize(decodeURIComponent(req.url.split('?')[0]));
@@ -54,5 +69,18 @@ export function serve(scenePath, port = 8765) {
     }
   });
 
-  return new Promise((ok) => server.listen(port, () => ok(server)));
+  // Reject rather than let a failed bind become an unhandled 'error' event —
+  // that prints a raw node stack, where every other error in this CLI is one
+  // sentence from die(). EADDRINUSE is the common case: a preview server
+  // outlives the session that started it.
+  return new Promise((ok, fail) => {
+    server.once('error', (e) =>
+      fail(
+        e.code === 'EADDRINUSE'
+          ? new Error(`port ${port} is already in use — try: diagram preview <file> --port ${port + 1}`)
+          : e,
+      ),
+    );
+    server.listen(port, () => ok(server));
+  });
 }
