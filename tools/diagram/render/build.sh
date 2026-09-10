@@ -13,6 +13,12 @@ echo "→ installing preview deps (not saved to package.json)..."
 npm install --no-save --no-audit --no-fund \
   @excalidraw/excalidraw@0.17.6 react@18.2.0 react-dom@18.2.0 esbuild
 
+# ⚠️ --no-save means a later plain `npm install` PRUNES these again — and the
+# repo's own installer runs exactly that. The bundle below survives (it is a
+# built file) but the fonts under node_modules do not, so the preview would
+# serve 404s for /assets/* while looking fine. serve.mjs therefore checks the
+# fonts as well as the bundle, and re-running this script is the fix.
+
 ESBUILD="node_modules/@esbuild/linux-x64/bin/esbuild"
 [ -x "$ESBUILD" ] || ESBUILD="node_modules/.bin/esbuild"
 

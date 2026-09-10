@@ -59,7 +59,13 @@ if (verb === 'preview') {
   if (!existsSync(scene)) die(`no such file: ${scene}`);
   const { serve } = await import('../render/serve.mjs');
   const port = Number(flag('--port') ?? 8765);
-  await serve(scene, port).catch((e) => die(e.message));
+  // try/catch, not .catch(): serve() validates its artifacts and throws
+  // SYNCHRONOUSLY, so a promise handler alone would never see that error.
+  try {
+    await serve(scene, port);
+  } catch (e) {
+    die(e.message);
+  }
   console.log(`preview → http://localhost:${port}/`);
   console.log('(ctrl-c to stop)');
 } else {
