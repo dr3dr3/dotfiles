@@ -31,7 +31,7 @@ runtimes** (PHP, Node apps, MySQL, Redis…) live inside dev containers.
 | `olr` / `olu` / `olrm` | `ollama run` / `pull` / `rm` | run / fetch / free memory |
 | `roe` | `code roe-local-dev.code-workspace` | **JIT editor — never bare `code .`** |
 | `ll` / `lt` | `eza -lah --git` / tree | listings |
-| `lg` | `lazygit` | git TUI |
+| `lg` | `lazygit` | host: dotfiles repo only; project Git runs in-container |
 | `upd` | `update-mac.sh` | update + audit + assert the host |
 
 ---
@@ -98,12 +98,35 @@ logic.
 
 ## 🖥️ Ghostty ⇄ containers
 
+### Plain host tab: platform tools
+
+Open **Cmd+T** for a fresh host zsh session (`uname -s` prints `Darwin`).
+Ghostty's configured command is `/bin/zsh -l`; enter a devcontainer explicitly
+with `devsh` or `devherd` when you want a project session.
+
+These tools belong in a plain host tab and are declared in the root Brewfile:
+
+| Task | Host command | Scope |
+| --- | --- | --- |
+| Containers and logs | `lazydocker` (`lzd`), `docker ps -a`, `docker logs -f <container>` | Selected Docker daemon; `docker context show` should say `orbstack` for the local engine. A `DOCKER_HOST` override can change the target. |
+| Mac CPU/RAM/processes | `btop` | Actual macOS resources; a container monitor sees Linux VM/container resources. |
+| OrbStack lifecycle | `orbctl status`, `orbctl start`, `orbctl stop` | Whole engine; stopping it interrupts its containers and Linux machines. OrbStack supplies Docker and Compose, so no separate Docker Desktop install is needed. |
+| Image inspection | `dive <image:tag>` | Inspect a local image's layers. |
+| Ollama monitoring | `ollama ps` (`olp`), `ollama list` (`oll`), `btop` | Resident models, downloaded models, and host resource use; no extra monitoring package needed. |
+| Host authentication | `op whoami`, `ssh-add -l`, `gh auth status` | 1Password CLI session, SSH agent identities, and GitHub CLI authentication; 1Password may ask to unlock/approve. |
+| Dotfiles maintenance | `cd ~/Code/dr3dr3/dotfiles`, then `./doctor-mac.sh` or `upd` | Read-only host audit or host updates. |
+| Dotfiles Git | `cd ~/Code/dr3dr3/dotfiles`, then `lazygit` (`lg`) | Host Git TUI only for this repo; use the container's Git tooling for project repos. |
+
+Apply the declared tools with `brew bundle install --no-upgrade`, then check
+with `brew bundle check`. Use `ollama serve` for an on-demand local server;
+the existing `o-up` / `o-down` aliases manage the service for container access.
+
 Ghostty runs on the **host**; you "work inside" a container by running a shell
 **in a Ghostty pane**. Typical layout — one window, four splits:
 
 ```
 ┌────────────────────┬────────────────────┐
-│ host: git, dcu/dcb │ container: dcs      │   Cmd+D      split right
+│ host: btop, lzd    │ container: devsh    │   Cmd+D      split right
 ├────────────────────┼────────────────────┤   Cmd+Shift+D split down
 │ agent: cc / cx     │ logs: dcl / olp     │   Cmd+[ / ]  move between splits
 └────────────────────┴────────────────────┘   Cmd+Enter  zoom focused split
@@ -122,8 +145,8 @@ Ghostty runs on the **host**; you "work inside" a container by running a shell
 | `Ctrl+` `` ` `` (global) | drop-down **quick terminal** from anywhere |
 | `Cmd+Shift+,` | reload config after editing |
 
-- **New splits inherit the cwd** (and the container shell, via shell
-  integration) — split off `dcs` and you're still inside the container.
+- **New splits inherit the cwd where available**, but start a fresh host shell.
+  Run `devsh` in the new split to enter the container.
 - **Quick terminal** (`Ctrl+``) is a global scratch shell — fire off `olp`,
   `gh pr list`, or an `op` lookup without leaving your editor, then dismiss.
 

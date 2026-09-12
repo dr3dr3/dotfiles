@@ -66,7 +66,7 @@ brew "zoxide"               # `z` — jump to frequent dirs (terminal-first nav)
 brew "git-delta"            # gorgeous git/diff pager — the JIT diffing surface
 brew "jq"                   # JSON wrangling (devcontainer.json, gh api)
 brew "yq"                   # YAML wrangling (docker-compose, configs)
-brew "lazygit"             # TUI git client for quick host-side history/staging
+brew "lazygit"             # host Git TUI for this dotfiles repo; project Git stays in-container
 brew "wget"                 # the one curl can't always replace
 
 # --- Runtime versions (host stays clean; Node only for local CLI tooling) ----
@@ -110,6 +110,7 @@ cask "orbstack"            # Docker/Compose-compatible engine, faster on macOS.
                             # (@devcontainers/cli itself is npm — see bootstrap.)
 brew "lazydocker"          # TUI dashboard for containers/logs/compose (OrbStack)
 brew "dive"                # inspect image layers when debugging a Dockerfile
+brew "btop"                # host macOS CPU/RAM/process monitor; run outside containers
 
 # --- Terminal ----------------------------------------------------------------
 cask "ghostty"             # native GPU terminal; config in dotfiles/ghostty
