@@ -117,7 +117,7 @@ brew "zellij"              # terminal multiplexer — persistent sessions that
                             # survive Ghostty restarts/detach + reproducible
                             # layouts. Config + dev layout in dotfiles/zellij.
                             # (Reattach with `zj`; 2x2 workspace with `zjd`.)
-cask "karabiner-elements"  # Ghostty-scoped Caps Lock → Ctrl+Space remap for
+cask "karabiner-elements"  # Ghostty-scoped Caps Lock → Ctrl+Alt+Space remap for
                             # Herdr; rule lives in the karabiner stow package.
 
 # --- AI coding agents (host copies — deliberate exception) -------------------
@@ -141,6 +141,7 @@ cask "codex"               # OpenAI Codex CLI — `codex` binary plus bash/zsh/
                            # fish completions (github.com/openai/codex).
                            # NOT `codex-app`: discontinued upstream, brew
                            # disables it 2027-07-12.
+brew "atuin"               # searchable, local-first shell history
 brew "herdr"               # agent multiplexer for the two above (herdr.dev).
                            # The one daemon declared in this file: start on
                            # demand with `herdr server`, or as a service via

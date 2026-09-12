@@ -23,5 +23,5 @@ if (-not (Get-Command herdr -ErrorAction SilentlyContinue)) {
 $env:HERDR_CONFIG_PATH = $ConfigPath
 
 Write-Host "Herdr config: $ConfigPath"
-Write-Host "Prefix: Ctrl+Space"
+Write-Host "Prefix: Ctrl+Alt+Space"
 Write-Host "For one-key Caps Lock setup, see docs/HERDR.md."

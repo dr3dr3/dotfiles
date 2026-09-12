@@ -167,7 +167,7 @@ cat <<'EOF'
 
   Herdr
     • In Karabiner-Elements, enable the predefined rule:
-      "Ghostty: Caps Lock sends Ctrl+Space; Shift+Caps Lock toggles Caps Lock".
+      "Ghostty: Caps Lock sends Ctrl+Alt+Space; Shift+Caps Lock toggles Caps Lock".
     • Run `herdr` on the host, or `devherd` from a project to run it in-container.
     • Full setup and keymap: docs/HERDR.md
 

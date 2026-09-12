@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Opt-in Linux host remap: Caps Lock emits Ctrl+Space for Herdr.
+# Opt-in Linux host remap: Caps Lock emits Ctrl+Alt+Space for Herdr.
 # Do not run this inside a devcontainer; keyboard remapping belongs on the host.
 
 set -euo pipefail
@@ -29,5 +29,5 @@ sudo install -D -m 0644 "$SOURCE" "$TARGET"
 sudo systemctl enable --now keyd
 sudo keyd reload
 
-echo "✓ Caps Lock now sends Ctrl+Space on this Linux host."
+echo "✓ Caps Lock now sends Ctrl+Alt+Space on this Linux host."
 echo "  This replaces Omarchy's Caps Lock compose/emoji sequences."

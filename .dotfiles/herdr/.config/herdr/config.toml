@@ -14,7 +14,12 @@ resume_agents_on_restore = true
 pane_history = true
 
 [keys]
-prefix = "ctrl+space"
+# Ctrl+Alt is the one modifier family terminals and desktops leave alone, and
+# it survives the macOS option-key composing behaviour. Ctrl+Space is contested
+# on macOS: the Input Sources shortcut claims it by default, and the ChatGPT
+# desktop app registers it as a global hotkey, so the chord never reaches the
+# terminal at all.
+prefix = "ctrl+alt+space"
 
 # General
 help = "prefix+?"

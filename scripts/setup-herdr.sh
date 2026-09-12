@@ -69,4 +69,4 @@ if [[ "${HERDR_CONTAINER_FISH:-0}" == 1 ]]; then
 fi
 link_config
 
-echo "✓ Herdr setup complete (prefix: Ctrl+Space; one-key host trigger: Caps Lock)"
+echo "✓ Herdr setup complete (prefix: Ctrl+Alt+Space; one-key host trigger: Caps Lock)"

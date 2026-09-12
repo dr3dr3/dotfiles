@@ -2,7 +2,7 @@
   "title": "Herdr prefix on Caps Lock",
   "rules": [
     {
-      "description": "Ghostty: Caps Lock sends Ctrl+Space; Shift+Caps Lock toggles Caps Lock",
+      "description": "Ghostty: Caps Lock sends Ctrl+Alt+Space; Shift+Caps Lock toggles Caps Lock",
       "manipulators": [
         {
           "type": "basic",
@@ -37,7 +37,7 @@
           "to": [
             {
               "key_code": "spacebar",
-              "modifiers": ["left_control"]
+              "modifiers": ["left_control", "left_option"]
             }
           ],
           "conditions": [
