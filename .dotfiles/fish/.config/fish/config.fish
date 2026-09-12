@@ -111,8 +111,12 @@ function _dcx
 end
 function ccp --description 'Claude Code (personal) in the container'; _dcx claude $argv; end
 function cca --description 'Claude Code (corporate-API) in the container'; _dcx env CLAUDE_CONFIG_DIR="$HOME/.claude-corp" claude $argv; end
-function cc  --description 'Claude Code (defaults to personal)'; ccp $argv; end
-function cx  --description 'Codex in the container'; _dcx codex $argv; end
+# dotai supplies cx/cc in devcontainer conf.d, which Fish loads before this file.
+# Keep these host entry points from replacing the container-local shortcuts.
+if not set -q DEVCONTAINER; or test "$DEVCONTAINER" != 1
+    function cc  --description 'Claude Code (defaults to personal)'; ccp $argv; end
+    function cx  --description 'Codex in the container'; _dcx codex $argv; end
+end
 function pi  --description 'Pi Harness in the container'; _dcx pi $argv; end
 
 # ── Ollama (host-native; fallback only) ──────────────────────────────────────
