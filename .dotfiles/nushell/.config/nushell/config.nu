@@ -90,7 +90,13 @@ def o-up [] { launchctl setenv OLLAMA_HOST "0.0.0.0:11434"; brew services restar
 alias o-down = brew services stop ollama
 
 # JIT editor — always the multi-root workspace, never `code .`
-alias roe = code roe-local-dev.code-workspace
+def --wrapped roe [...rest] {
+    if ("/workspace/scripts/roe.sh" | path exists) {
+        ^bash /workspace/scripts/roe.sh ...$rest
+    } else {
+        ^code roe-local-dev.code-workspace ...$rest
+    }
+}
 
 # repos: ~/Code/<org>/<repo> helpers
 def --env clone [slug: string, host: string = "github.com"] {

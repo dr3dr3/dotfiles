@@ -52,7 +52,7 @@ done
 unset _f
 
 # --- fzf (fuzzy finder: Ctrl-R history, Ctrl-T files, Alt-C cd) ---------------
-if command -v fzf >/dev/null 2>&1; then
+if command -v fzf >/dev/null 2>&1 && fzf --help | grep -q -- --zsh; then
   source <(fzf --zsh)
 fi
 
@@ -64,4 +64,15 @@ fi
 # --- Prompt (shared starship config with the dev containers) -----------------
 if command -v starship >/dev/null 2>&1; then
   eval "$(starship init zsh)"
+fi
+
+# Atuin owns Ctrl-R after fzf initialization.
+if command -v atuin >/dev/null 2>&1; then
+  eval "$(atuin init zsh --disable-up-arrow)"
+fi
+
+# Keep the umbrella's command available after loading host aliases.
+if [[ -f /workspace/scripts/roe.sh ]]; then
+  unalias roe 2>/dev/null || true
+  function roe { bash /workspace/scripts/roe.sh "$@"; }
 fi

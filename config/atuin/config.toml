@@ -1,0 +1,4 @@
+# Copied on first setup; machine-local changes are preserved on subsequent runs.
+# History, encryption keys, and login state stay outside the tracked repo.
+auto_sync = false
+update_check = false

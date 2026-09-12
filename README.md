@@ -67,24 +67,25 @@ Handy aliases (see [`aliases.zsh`](.dotfiles/zsh/.config/zsh/aliases.zsh) /
 
 This repo is designed to be cloned into a project's devcontainer setup. The `install.sh` script sets up the shell environment inside the container — it only modifies the container's home directory (`~`) and does not touch the host workspace.
 
-### Setup in a Project
+### Setup in the Rock of Eye devcontainer
 
-In your project's devcontainer config (e.g. `postCreateCommand` or `postStartCommand`), clone this repo and run the install script:
+Clone this repo at `/workspace/dotfiles`, then run `roe setup-dotfiles`
+(or `make setup-dotfiles` from `/workspace`). The command requires an existing
+clone and runs `bash /workspace/dotfiles/scripts/setup-devcontainer.sh`.
+Future container creation runs the same hook automatically when the clone exists.
 
-```bash
-git clone https://github.com/dr3dr3/dotfiles.git .dotfiles
-bash .dotfiles/install.sh
-```
+The personal hook installs Fish, Zsh, Nushell, Vim and Starship when missing, applies
+managed Fish/Zsh/Nushell/Vim/Starship configuration, and sets up Herdr and Atuin.
+Bash retains its existing initialization and gains Starship and Atuin.
+Open a new terminal afterward; run `fish` or `zsh` to choose that shell.
+Herdr uses Fish for new panes; the account default shell is unchanged. Nushell uses the pinned official 0.115.1 Linux release for ARM64 or x86_64.
+Host-only tooling is not installed by this hook. Prompt icons use the font configured in your host terminal.
 
-This will:
-
-1. Install `fish`, `stow`, `git`, `vim` via `apt-get`
-2. Install **Nushell** from the [latest GitHub release](https://github.com/nushell/nushell/releases) (not available in apt)
-3. Install **Starship** from the official installer script
-4. Auto-configure Starship for Bash, Fish, and Nushell
-5. Apply all dotfile configs to `~` using [GNU Stow](https://www.gnu.org/software/stow/)
-
-> **Note:** You may see `bash: __git_ps1: command not found` in the terminal after running the script. This is harmless — it comes from the default bash PS1 before Starship takes over, and disappears once you open a new terminal session.
+Existing config files are backed up under `~/.config/dotfiles-backups/`.
+Config directories remain real directories: only selected files are linked,
+so shell runtime state does not land in this checkout. Repeated setup preserves
+already-correct links. The legacy `install.sh` is a separate, broad Stow installer;
+use the new hook for this devcontainer.
 
 ## 📁 Repo Structure
 
@@ -119,8 +120,7 @@ Dotfile configs live in `.dotfiles/` and are organised as [GNU Stow](https://www
 
 On the **macOS host**, `bootstrap-mac.sh` stows `zsh ghostty herdr karabiner starship fish nushell zellij mise`,
 and Fish + Nushell carry the same host wiring as zsh (mise, 1Password agent,
-fzf/zoxide, the devcontainer/agent aliases). In **containers**, `install.sh`
-stows `fish nushell starship vim herdr` and installs Herdr if needed.
+fzf/zoxide, the devcontainer/agent aliases). In **containers**, use `scripts/setup-devcontainer.sh` as described above.
 
 To apply a single package manually: `cd .dotfiles && stow --target "$HOME" fish`
 
@@ -213,3 +213,9 @@ The custom Starship config shows context-relevant info in a single line, with th
 ## 📝 License
 
 Personal dotfiles for André Dreyer. Feel free to use as inspiration for your own configurations!
+
+### Devcontainer persistence and Atuin
+
+Run `bash scripts/setup-devcontainer.sh` for the personal shell, Starship, Herdr +
+Atuin setup. See [persistence and rebuild recovery](docs/PERSISTENCE.md), including
+the one-time Codex migration to run **before** rebuilding an existing container.

@@ -59,6 +59,14 @@ link_config() {
 }
 
 install_herdr
+# The devcontainer opts into Fish without changing the portable host config.
+if [[ "${HERDR_CONTAINER_FISH:-0}" == 1 ]]; then
+  command -v fish >/dev/null
+  mkdir -p "$(dirname "$CONFIG_DST")"
+  generated="$(dirname "$CONFIG_DST")/container.toml"
+  { cat "$CONFIG_SRC"; printf '\n[terminal]\ndefault_shell = "/usr/bin/fish"\n'; } > "$generated"
+  CONFIG_SRC="$generated"
+fi
 link_config
 
 echo "✓ Herdr setup complete (prefix: Ctrl+Space; one-key host trigger: Caps Lock)"
