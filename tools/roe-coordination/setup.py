@@ -50,7 +50,7 @@ def main():
         if existing and existing.get('provider') != str(HERE/'roe-coordination'):
             raise RuntimeError('Existing provider belongs to another installation; refusing to overwrite')
         if settings.exists() and json.loads(settings.read_text()).get('config') != str(destination):
-            raise RuntimeError('This personal launcher already targets a different stack')
+            raise RuntimeError('This personal installation already targets a different stack')
         homes=[str(x.resolve()) for x in args.firstmate_home] or (existing or {}).get('homes',[])
         docs=[args.user_home/'.codex/AGENTS.md',args.user_home/'.claude/CLAUDE.md']
         docs += [Path(home)/'data/captain-shared.md' for home in homes]
@@ -64,9 +64,9 @@ def main():
                     raise RuntimeError('Firstmate home must already have state/ and data/: '+home)
             if existing and (Path(existing['state'])/'lease.json').exists():
                 raise RuntimeError('Cannot reconfigure while the runtime is reserved')
-            for target in [executable, install/'roe-agent']:
+            for target in [executable]:
                 if target.exists() or target.is_symlink():
-                    expected=HERE/('roe-coordination' if target.name=='roe-coordination' else 'roe-agent')
+                    expected=HERE/'roe-coordination'
                     if not target.is_symlink() or target.resolve()!=expected:
                         raise RuntimeError('Refusing to overwrite unmanaged executable: '+str(target))
             # Validate managed blocks before changing any destination.
@@ -76,9 +76,13 @@ def main():
                     raise RuntimeError('Incomplete managed instruction block: '+str(doc))
             config=dict(version=1,root=str(root),provider=str(HERE/'roe-coordination'),state=str(common/'roe-runtime-state'),homes=homes)
             install.mkdir(parents=True,exist_ok=True)
-            for name in ['roe-coordination','roe-agent']:
+            for name in ['roe-coordination']:
                 dest=install/name
                 if not dest.is_symlink(): dest.symlink_to(HERE/name)
+            # Migrate the earlier optional reminder wrapper; never remove an unmanaged command.
+            legacy=install/'roe-agent'
+            if legacy.is_symlink() and legacy.resolve()==HERE/'roe-agent':
+                legacy.unlink()
             policy=(HERE/'policy.md').read_text()
             policy='Configured stack: '+str(root)+'\n\n'+policy
             policy+='\n\nThis scoped routing supersedes an older personal preference saying all software work must go through Firstmate. Other pilot restrictions remain unchanged.'

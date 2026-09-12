@@ -1,4 +1,0 @@
-#!/usr/bin/env bash
-# Explicit reminder wrapper; preserves the requested agent's flags and argv.
-set -euo pipefail
-exec "$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)/roe-coordination" launch -- "$@"

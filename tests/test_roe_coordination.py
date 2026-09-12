@@ -89,7 +89,7 @@ class CoordinationTest(unittest.TestCase):
         self.call('make','restart')
 
     def test_foreign_executable_refused_before_activation(self):
-        p=self.home/'.local/bin/roe-agent';p.parent.mkdir(parents=True);p.write_text('mine')
+        p=self.home/'.local/bin/roe-coordination';p.parent.mkdir(parents=True);p.write_text('mine')
         self.call('python3',SETUP,'enable','--root',self.root,'--firstmate-home',self.fm,ok=False)
         self.assertEqual(p.read_text(),'mine');self.assertFalse(self.cfg.exists())
         self.assertFalse((self.home/'.codex/AGENTS.md').exists())
@@ -156,10 +156,48 @@ class CoordinationTest(unittest.TestCase):
         self.call(TOOL,'guard',self.cfg,'stage-worktree','status')
         self.call(TOOL,'guard',self.cfg,'stage-worktree','stage',ok=False)
 
-    def test_launch_reminder_and_argv(self):
+    @unittest.skipUnless(HAS_GUARD, 'Set ROE_LOCAL_DEV_ENV_ROOT for companion guard integration')
+    def test_registered_task_stages_validates_and_restores(self):
+        app=self.root/'repos/demo';app.mkdir(parents=True)
+        def git(*args):
+            self.call('git','-C',app,*args)
+        git('init','-q','-b','main')
+        git('config','user.name','Test');git('config','user.email','test@example.com')
+        (app/'app.txt').write_text('original')
+        git('add','app.txt');git('commit','-qm','original')
+        git('switch','-c','feature')
+        (app/'app.txt').write_text('feature')
+        git('commit','-am','feature')
+        git('switch','main')
+        git('worktree','add',app/'.worktrees/feature','feature')
+        for name in ['stage-worktree.sh','composer-autoload-check.sh']:
+            shutil.copy2(UMBRELLA/'scripts'/name,self.root/'scripts'/name)
         self.enable()
-        r=self.call(TOOL,'launch','--','python3','-c','import sys;print(repr(sys.argv[1:]))','two words')
-        self.assertIn('Personal routing:',r.stdout);self.assertIn("['two words']",r.stdout)
+        code="""import subprocess
+from pathlib import Path
+stage=['bash','scripts/stage-worktree.sh']
+subprocess.run(stage+['stage','demo','feature'],check=True)
+try:
+    assert Path('repos/demo/app.txt').read_text()=='feature'
+finally:
+    subprocess.run(stage+['unstage','demo'],check=True)
+assert Path('repos/demo/app.txt').read_text()=='original'
+"""
+        env=dict(self.env,STAGE_WORKTREE_REPO_NAMES='demo')
+        self.call(*self.command(code),env=env)
+        self.assertFalse((self.state/'lease.json').exists())
+        self.assertFalse(list((self.root/'.staged-worktrees').glob('*.lock')))
+
+    def test_upgrade_removes_only_owned_legacy_launcher(self):
+        legacy=self.home/'.local/bin/roe-agent'
+        legacy.parent.mkdir(parents=True)
+        legacy.symlink_to(SOURCE/'tools/roe-coordination/roe-agent')
+        self.enable()
+        self.assertFalse(legacy.is_symlink())
+        legacy.write_text('An unrelated personal command')
+        self.enable()
+        self.assertEqual(legacy.read_text(),'An unrelated personal command')
+
 
 
 if __name__=='__main__':unittest.main()

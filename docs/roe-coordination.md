@@ -1,5 +1,16 @@
 # Personal Firstmate coordination
 
+This is a terminal tool for Firstmate's validation workflow, not an agent launcher
+or another coordinator. Python uses only the standard library.
+
+| Location | Contents |
+| --- | --- |
+| dotfiles: `tools/roe-coordination/roe-coordination` | Reservation runner, ownership checks, status and recovery |
+| dotfiles: `tools/roe-coordination/setup.py` | Explicit personal install/uninstall and instruction blocks |
+| dotfiles: `tools/roe-coordination/policy.md` | Personal platform/tooling routing and authority boundaries |
+| local-dev-env: `scripts/runtime-guard.sh` + entry points | Generic, disabled-by-default provider integration |
+| Git common directory: `roe-runtime.json`, `roe-runtime-state/` | Local activation, reservation and audit state; never committed |
+
 This integration is **explicitly opt-in**, not part of `setup-herdr.sh`, dotai's
 shared setup, or local-dev-env bootstrap. Other developers need neither
 Firstmate nor this tool. Install only on a dedicated local-dev-env stack.
@@ -8,18 +19,15 @@ Firstmate nor this tool. Install only on a dedicated local-dev-env stack.
 python3 /workspace/dotfiles/tools/roe-coordination/setup.py enable \
   --root /workspace --firstmate-home /workspace/.firstmate-home
 roe-coordination status
-roe-agent codex
-# Resume with a fresh reminder; argv is forwarded unchanged:
-roe-agent codex resume
 ```
 
 The personal policy is a managed block in user Codex/Claude instructions and
 Firstmate's `data/captain-shared.md`. Existing instructions remain intact.
-Native Herdr session restoration can bypass this wrapper: the instruction block
-requires rechecking status after resume. We do not claim a native Codex startup
-hook or change Herdr's configuration. Plain agent binaries and existing aliases
-retain their launch behavior. Add additional trusted homes by repeating
-`--firstmate-home` on enable while no reservation exists.
+Continue launching Codex or Claude normally in Herdr. There is no agent-launch
+wrapper. Agents re-read the personal routing instructions and check coordination
+when a task needs the shared runtime. The tool does not depend on a native
+Codex startup hook or alter Herdr configuration. Add additional trusted homes
+by repeating `--firstmate-home` on enable while no reservation exists.
 
 For a Firstmate-registered task (metadata plus brief and existing worktree), run
 a validation script containing stage, tests and unstage under one reservation:
@@ -82,3 +90,8 @@ Disabling removes only the owned blocks, links and activation. Audit state stays
 local. Enabled-but-broken providers fail closed; absent activation has no Python
 or Firstmate dependency. Test with `python3 dotfiles/tests/test_roe_coordination.py`
 from `/workspace`; all fixtures are isolated and use no real Docker stack.
+
+The integration test exercises a registered-task fixture through the real staging
+script: reserve, stage committed code, validate, restore, and release. It does not
+launch Firstmate or alter a live application. The pilot still requires the captain
+to execute runtime commands; this tool does not relax that authority boundary.

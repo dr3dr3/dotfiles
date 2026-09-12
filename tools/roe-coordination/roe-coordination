@@ -192,7 +192,6 @@ def main():
     sub.add_parser('status')
     r = sub.add_parser('run'); r.add_argument('--home', required=True); r.add_argument('--task', required=True); r.add_argument('--recover-id'); r.add_argument('--processes-stopped-and-state-reviewed', action='store_true'); r.add_argument('command', nargs=argparse.REMAINDER)
     r = sub.add_parser('recover'); r.add_argument('--confirm-id', required=True); r.add_argument('--reason', required=True); r.add_argument('--processes-stopped-and-state-reviewed', action='store_true', required=True)
-    n = sub.add_parser('launch'); n.add_argument('command', nargs=argparse.REMAINDER)
     args = parser.parse_args()
     c = config(args.config if args.action == 'guard' else None)
     if args.action == 'guard':
@@ -227,12 +226,6 @@ def main():
             print('Heartbeat age: %.0fs' % (time.time() - item['heartbeat']))
         for record in staged_summary(c):
             print('Staged: {repo} {branch} @ {sha}'.format(**record))
-    if args.action == 'launch':
-        print('Personal routing: platform implementation → Firstmate; independent tooling → this session. Re-check on resume or scope changes.', flush=True)
-        command = args.command[1:] if args.command[:1] == ['--'] else args.command
-        if not command:
-            fail('launch requires an agent command after --')
-        os.execvp(command[0], command)
     return 0
 
 
