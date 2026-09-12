@@ -32,7 +32,7 @@ alias dpsa='docker ps -a'
 alias dco='docker compose'
 alias dcl='docker compose logs -f'                                       # tail stack logs
 alias lzd='lazydocker'                                                    # container TUI
-alias orb='orbstack'                                                      # `orb start|stop|status`
+# OrbStack supplies `orb` and `orbctl`; keep the native commands unshadowed.
 
 # --- zellij (persistent sessions + layouts) ----------------------------------
 alias zj='zellij attach --create main'   # everyday persistent session

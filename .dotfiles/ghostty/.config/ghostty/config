@@ -6,7 +6,7 @@
 # =============================================================================
 
 # --- Shell -------------------------------------------------------------------
-# Use the Homebrew zsh and enable shell integration (cwd tracking, prompt marks).
+# Use macOS zsh and enable shell integration (cwd tracking, prompt marks).
 command = /bin/zsh -l
 shell-integration = zsh
 shell-integration-features = cursor,sudo,title
@@ -41,8 +41,8 @@ quit-after-last-window-closed = true
 clipboard-read = allow
 clipboard-write = allow
 copy-on-select = clipboard
-# New splits/tabs inherit the cwd — open a split and you're still in the repo
-# (or still inside the container shell, via Ghostty's shell integration).
+# New splits/tabs inherit the cwd where available, but start a fresh host shell.
+# Enter a container explicitly with devsh or devherd in the new surface.
 window-inherit-working-directory = true
 
 # Let the OS surface a notification when a long agent/build run finishes while
