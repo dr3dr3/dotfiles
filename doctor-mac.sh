@@ -134,7 +134,7 @@ fi
 
 # Herdr parses the active config without starting or attaching to a session.
 if clean herdr config check | grep -q "config: ok"; then
-  pass "Herdr config parses (Omarchy Ctrl+Space keymap)"
+  pass "Herdr config parses (Omarchy keymap, Ctrl+Alt+Space prefix)"
 else
   fail "Herdr config is invalid"
   hint "run: herdr config check"

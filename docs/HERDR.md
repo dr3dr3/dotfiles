@@ -5,15 +5,41 @@ portable keymap is used on macOS, Linux/Omarchy, Windows, and inside
 devcontainers:
 
 - Config source: `.dotfiles/herdr/.config/herdr/config.toml`
-- Prefix: `Ctrl+Space`, matching Omarchy
-- One-key prefix: Caps Lock sends `Ctrl+Space`
+- Prefix: `Ctrl+Alt+Space`
+- One-key prefix: Caps Lock sends `Ctrl+Alt+Space`
 - Live help: prefix, then `?`
 - Reload: prefix, then `q`
 - Detach: prefix, then `d`
 
 Herdr accepts one prefix value, not a list. Caps Lock is therefore translated
-to `Ctrl+Space` by the host keyboard layer. The normal `Ctrl+Space` chord always
-remains available.
+to `Ctrl+Alt+Space` by the host keyboard layer. The normal `Ctrl+Alt+Space`
+chord always remains available.
+
+### Why not `Ctrl+Space`
+
+This keymap used `Ctrl+Space` until 2026-09-12, matching Omarchy's default.
+That chord is contested on macOS and the conflicts are invisible from inside
+the terminal — the key is consumed by the system before the terminal process
+ever sees it, so Herdr looks broken while behaving correctly. Two known
+claimants: the Input Sources shortcut "Select the previous input source",
+enabled by default whenever more than one input source is installed, and the
+ChatGPT desktop app, which registers `Ctrl+Space` as a global hotkey.
+
+Herdr's keyboard documentation recommends the `ctrl+alt` family as the one
+modifier combination terminals and desktop environments leave alone. It also
+avoids the macOS option-key composing behaviour that blocks plain `Alt` chords
+and transmits correctly in terminals without a modern keyboard protocol.
+
+A host keyboard remap does not dodge this class of problem. Karabiner-Elements
+and keyd both emit a real chord into the normal event chain, so a Caps Lock
+rule inherits whatever conflict its output chord has. The prefix has to be a
+chord nothing else claims; Caps Lock is a convenience layer on top of that.
+
+To diagnose a suspected conflict, run `command cat -v` in the terminal and
+press the chord. Bypassing the shell alias matters — `cat` is often aliased to
+`bat`, which has no `-v` flag and will error instead of testing anything. Any
+output at all means the chord reached the terminal and the problem lies with
+Herdr's configuration; silence means the host consumed it.
 
 ## Keymap
 
@@ -37,8 +63,8 @@ After bootstrap, open Karabiner-Elements:
 
 1. Open **Complex Modifications**.
 2. Choose **Add predefined rule**.
-3. Enable **Ghostty: Caps Lock sends Ctrl+Space; Shift+Caps Lock toggles Caps
-   Lock**.
+3. Enable **Ghostty: Caps Lock sends Ctrl+Alt+Space; Shift+Caps Lock toggles
+   Caps Lock**.
 
 The rule is scoped to Ghostty, so Caps Lock behaves normally in other apps.
 Inside Ghostty, use `Shift+Caps Lock` when you need actual Caps Lock.
@@ -61,15 +87,16 @@ For Caps Lock:
 
 1. Install PowerToys: `winget install --id Microsoft.PowerToys --source winget`.
 2. Open **PowerToys → Keyboard Manager → Remap a key**.
-3. Map `Caps Lock` to the shortcut `Ctrl+Space`.
+3. Map `Caps Lock` to the shortcut `Ctrl+Alt+Space`.
 
 PowerToys' key-to-shortcut remap is global. If preserving Caps Lock matters,
-add a second shortcut for it or skip the remap and use `Ctrl+Space` directly.
+add a second shortcut for it or skip the remap and use `Ctrl+Alt+Space`
+directly.
 
 ## Omarchy Linux
 
-Omarchy already uses `Ctrl+Space` as its Herdr prefix. To make Caps Lock emit
-that chord:
+Omarchy ships `Ctrl+Space` as its Herdr prefix; this keymap overrides it with
+`Ctrl+Alt+Space`. To make Caps Lock emit that chord:
 
 ```bash
 bash scripts/setup-herdr-capslock-linux.sh
@@ -85,7 +112,7 @@ Run `bash scripts/setup-herdr.sh` if Herdr or the managed config is missing.
 ## Devcontainers
 
 Do not install a keyboard remapper inside a container. The macOS, Windows, or
-Linux host sends `Ctrl+Space` through the terminal. In local-dev-env:
+Linux host sends `Ctrl+Alt+Space` through the terminal. In local-dev-env:
 
 ```bash
 git clone https://github.com/dr3dr3/dotfiles.git /workspace/dotfiles
@@ -184,7 +211,7 @@ connect the servers, share workspaces, bridge sockets, or solve input conflicts.
 That change is not required for the current nested launch to work.
 
 If maintaining nesting, separate both the prefix and direct shortcuts. This
-repo's shared config uses `Ctrl+Space` plus bindings such as `Alt+Left/Right`
+repo's shared config uses `Ctrl+Alt+Space` plus bindings such as `Alt+Left/Right`
 and `Ctrl+Alt+Arrow`. Installing it unchanged in both environments lets outer
 Herdr intercept inner shortcuts. A different host prefix alone is insufficient.
 Mouse interaction can also be intercepted by the outer UI.
