@@ -75,7 +75,8 @@ clone and runs `bash /workspace/dotfiles/scripts/setup-devcontainer.sh`.
 Future container creation runs the same hook automatically when the clone exists.
 
 The personal hook installs Fish, Zsh, Nushell, Vim and Starship when missing, applies
-managed Fish/Zsh/Nushell/Vim/Starship configuration, and sets up Herdr and Atuin.
+managed Fish/Zsh/Nushell/Vim/Starship configuration, sets up Herdr and Atuin, and
+installs pinned lazygit, Glow, fd, eza, and zoxide binaries under `~/.local/bin`.
 Bash retains its existing initialization and gains Starship and Atuin.
 Open a new terminal afterward; run `fish` or `zsh` to choose that shell.
 Herdr uses Fish for new panes; the account default shell is unchanged. Nushell uses the pinned official 0.115.1 Linux release for ARM64 or x86_64.
