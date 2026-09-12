@@ -6,6 +6,13 @@ onboarding = false
 # Omarchy reference: https://omarchy.org/manual/hotkeys/#tmux
 # Herdr reference:   https://herdr.dev/docs/configuration/
 
+# Follow appearance changes reported by the outer terminal.
+[theme]
+name = "catppuccin"
+auto_switch = true
+light_name = "catppuccin-latte"
+dark_name = "catppuccin"
+
 [session]
 resume_agents_on_restore = true
 
