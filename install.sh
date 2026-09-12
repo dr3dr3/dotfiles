@@ -47,6 +47,9 @@ cd "$DOTFILES_DIR/.dotfiles"
 stow --delete --target "$HOME" */
 stow --adopt --target "$HOME" */
 
+# Wire shell history after Stow so generated rc files cannot be adopted.
+bash "$DOTFILES_DIR/scripts/setup-atuin.sh"
+
 # Personal tools (not stow packages — they install a launcher into ~/.local/bin)
 bash "$DOTFILES_DIR/tools/diagram/install.sh"
 

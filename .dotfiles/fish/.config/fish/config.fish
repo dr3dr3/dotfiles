@@ -33,7 +33,7 @@ end
 set -gx OP_ACCOUNT rockofeyesoftware
 
 # fzf (Ctrl-R / Ctrl-T / Alt-C) + zoxide (z)
-if type -q fzf
+if type -q fzf; and fzf --help | string match -q -- "*--fish*"
     fzf --fish | source
 end
 if type -q zoxide
@@ -134,9 +134,11 @@ abbr -a -- roe 'code roe-local-dev.code-workspace'
 abbr -a -- zoe 'zed roe-local-dev.code-workspace'
 
 # ── modern CLI (interactive) ─────────────────────────────────────────────────
-alias ls 'eza --group-directories-first'
-alias ll 'eza -lah --group-directories-first --git'
-alias lt 'eza --tree --level=2 --group-directories-first'
+if type -q eza
+    alias ls 'eza --group-directories-first'
+    alias ll 'eza -lah --group-directories-first --git'
+    alias lt 'eza --tree --level=2 --group-directories-first'
+end
 alias lg 'lazygit'
 
 # ── repos: ~/Code/<org>/<repo> helpers ───────────────────────────────────────
@@ -168,3 +170,16 @@ abbr -a -- upd '~/Code/dr3dr3/dotfiles/update-mac.sh'
 abbr -a -- brewdump 'brew bundle dump --file=/tmp/Brewfile.now --force; echo "→ wrote /tmp/Brewfile.now"'
 
 starship init fish | source
+
+# Atuin owns Ctrl-R; ordinary up-arrow history stays available.
+if status is-interactive; and type -q atuin
+    atuin init fish --disable-up-arrow | source
+end
+
+# In the umbrella devcontainer, roe is the Make front door.
+if test -f /workspace/scripts/roe.sh
+    abbr -e roe
+    function roe
+        bash /workspace/scripts/roe.sh $argv
+    end
+end
