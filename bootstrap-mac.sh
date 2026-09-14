@@ -171,6 +171,18 @@ cat <<'EOF'
     • Run `herdr` on the host, or `devherd` from a project to run it in-container.
     • Full setup and keymap: docs/HERDR.md
 
+  Handy (voice dictation — host-native, transcribes locally)
+    • Launch it once so it writes its settings, then apply this repo's profile:
+        open -a Handy && ./scripts/setup-handy.sh
+    • Grant BOTH permissions when prompted (System Settings ▸ Privacy & Security):
+        Microphone      — obvious when missing
+        Accessibility   — FAILS SILENTLY; transcription works, the paste never lands
+    • Download a model: Handy ▸ Settings ▸ Models ▸ Whisper Medium (~1.5GB).
+      The setup script deliberately does not pick it — see docs/HANDY.md.
+    • Auto Submit stays OFF. It would append Return to every transcript, i.e.
+      RUN whatever it heard when you dictate into a terminal. doctor-mac.sh fails
+      if it is ever on.
+
   Default shell
     • If not already zsh:  chsh -s /bin/zsh
 

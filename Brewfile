@@ -126,6 +126,44 @@ cask "logi-options+"       # MX Keys + MX Vertical button/key customisation.
                             # Input Monitoring permissions. Options+ auto-updates;
                             # mappings remain machine-local in Logitech state.
 
+# --- Voice dictation (host-native, fully local) -------------------------------
+cask "handy"               # push-to-talk dictation that transcribes ON-DEVICE
+                           # (whisper.cpp / Parakeet, Metal-accelerated) and
+                           # pastes into whatever has focus — including a
+                           # Ghostty pane running Herdr. No cloud, no API key,
+                           # no account, no subscription: nothing leaves the
+                           # Mac. MIT, github.com/cjpais/Handy.
+                           #
+                           # HOST-NATIVE ON PURPOSE. Dictation needs the mic and
+                           # the macOS accessibility/paste path, neither of which
+                           # a dev container has. It types into the focused
+                           # window, so the container side needs no awareness of
+                           # it at all — same shape as Karabiner above.
+                           #
+                           # TWO TCC PROMPTS ON FIRST RUN, both manual by design
+                           # (Microphone + Accessibility). Nothing in this repo
+                           # touches TCC — grant them in System Settings; see
+                           # docs/HANDY.md. Until Accessibility is granted the
+                           # transcript silently never lands anywhere.
+                           #
+                           # ⚠️ Auto Submit MUST stay OFF. It appends Return to
+                           # the transcript; dictating into a terminal would run
+                           # whatever Whisper heard, with no chance to read it
+                           # first. Asserted by doctor-mac.sh.
+                           #
+                           # Settings + models live in ~/Library/Application
+                           # Support/com.pais.handy/ and are NOT stowed: that
+                           # directory holds GB-scale model weights plus
+                           # recordings and transcript history. Only the
+                           # settings keys we care about are managed, by
+                           # scripts/setup-handy.sh merging into
+                           # settings_store.json. See README › Folded symlinks
+                           # for why symlinking it would be a mistake.
+                           #
+                           # Self-updating (auto_updates), so brew neither
+                           # fights it nor nags in `brew outdated` — unlike the
+                           # claude-code cask below.
+
 # --- AI coding agents (host copies — deliberate exception) -------------------
 # The default is still container-first: agents are installed *inside* the dev
 # containers by dotai (github.com/dr3dr3/dotai), so agent activity on project

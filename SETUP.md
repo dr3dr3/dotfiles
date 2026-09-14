@@ -65,13 +65,18 @@ exec zsh
 2. **OrbStack** — launch once to grant privileges. `docker` / `docker compose`
    then work against any devcontainer stack.
 3. **Ghostty** — set it as your default terminal (the config is already linked).
-4. *(optional)* Background Homebrew updates:
+4. **Handy** (voice dictation) — launch once, then `./scripts/setup-handy.sh`.
+   Grant **Microphone** *and* **Accessibility** in Privacy & Security (the second
+   fails silently), and download **Whisper Medium** in Handy ▸ Settings ▸ Models.
+   Leave **Auto Submit off** — it would press Return on every dictation.
+   Full runbook: [docs/HANDY.md](docs/HANDY.md).
+5. *(optional)* Background Homebrew updates:
    ```bash
    brew trust domt4/autoupdate   # tap is declared in the Brewfile; brew
                                  # won't load the command until it is trusted
    brew autoupdate start 86400 --upgrade --cleanup --enable-notification
    ```
-5. *(optional)* **Shells** — zsh is the default and the most wired-up, but Fish
+6. *(optional)* **Shells** — zsh is the default and the most wired-up, but Fish
    and Nushell carry the same host wiring (mise, 1Password agent, fzf/zoxide,
    the `dc*`/`cc`/`oll`/`clone` shortcuts). To make one the login shell:
    ```bash

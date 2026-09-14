@@ -116,6 +116,7 @@ These tools belong in a plain host tab and are declared in the root Brewfile:
 | Host authentication | `op whoami`, `ssh-add -l`, `gh auth status` | 1Password CLI session, SSH agent identities, and GitHub CLI authentication; 1Password may ask to unlock/approve. |
 | Dotfiles maintenance | `cd ~/Code/dr3dr3/dotfiles`, then `./doctor-mac.sh` or `upd` | Read-only host audit or host updates. |
 | Dotfiles Git | `cd ~/Code/dr3dr3/dotfiles`, then `lazygit` (`lg`) | Host Git TUI only for this repo; use the container's Git tooling for project repos. |
+| Voice dictation | hold the MacBook `Fn/Globe` key, speak, release | Handy, host-native. Transcribes on-device and pastes into the focused pane — Ghostty/Herdr included. Needs Microphone + Accessibility in Privacy & Security. |
 
 Logi Options+ owns the MX Vertical and MX Keys mappings on macOS. The intended
 layout is: MX Vertical back/forward buttons switch Ghostty panes (`Cmd+[` /
@@ -295,6 +296,38 @@ The `OUT` line under the EQ shows what is actually active.
 
 ---
 
+## 🎙️ Voice dictation — Handy
+
+Push-to-talk, transcribed **on this Mac**. No account, no API key, no per-minute
+cost; the only thing that would send text off-box is post-processing, which is
+pinned off. Full runbook: [HANDY.md](HANDY.md).
+
+```bash
+./scripts/setup-handy.sh             # apply the repo's profile (idempotent)
+./scripts/setup-handy.sh --dry-run   # show what would change
+$EDITOR ../config/handy/vocabulary.txt && ./scripts/setup-handy.sh   # add terms
+```
+
+| | |
+| --- | --- |
+| Hold to talk | MacBook `Fn/Globe` (no clash with the Herdr prefix, `Ctrl+Alt+Space`) |
+| Cancel | `Escape` while recording |
+| Model | Whisper Medium — pick it in Handy ▸ Settings ▸ Models, it downloads ~1.5GB |
+| Config | merged into `~/Library/Application Support/com.pais.handy/`, **never stowed** |
+
+- ⚠️ **Auto Submit stays OFF.** It appends Return to every transcript — dictating
+  into a terminal would *run* what Whisper heard. `doctor-mac.sh` fails if it is on.
+- **Nothing here touches macOS permissions.** Grant Microphone and Accessibility
+  by hand. Accessibility failing is silent: transcription works, the paste never
+  lands. Check that pane first when dictation "does nothing".
+- **No recordings or history are kept** (`history_limit 0` +
+  `recording_retention_period preserve_limit` prunes each WAV after transcription),
+  and your clipboard is snapshotted and restored around every paste.
+- Speech is bad at file paths, version numbers and flags. Dictate intent
+  ("rerun the failing test in the devcontainer") and type the syntax.
+
+---
+
 ## 🧹 Maintenance & security
 
 Goal: stay current (90% of "vuln-free" is just being up to date) and keep the
@@ -333,6 +366,7 @@ repo says?"* — which is where the real problems have hidden:
 | node comes **from mise**, `devcontainer` exists, `~/.local/bin` on PATH | a stray brew/nvm node shadowing mise is invisible otherwise |
 | ollama is **bound to all interfaces** | bound to loopback it is unreachable from containers |
 | `brew autoupdate` **actually runs** | an untrusted tap breaks the CLI while the launchd job keeps working |
+| Handy's **Auto Submit is off**, plus the rest of its profile | it is a UI toggle, not a tracked file — and on, dictation presses Return in your terminal |
 
 > Each check is verified to *fail* when it should, not just pass when things are
 > fine — a check that cannot fail is worse than no check, because it reads as
