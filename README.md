@@ -6,7 +6,8 @@ The same tracked terminal configuration supports four environments:
 - **macOS host** (Apple Silicon) — terminal-first, orchestration-oriented dev
   machine. See [macOS Setup](#-macos-setup).
 - **Ubuntu 24.04 dev containers** — the original target. See [Dev Container Usage](#-dev-container-usage).
-- **Omarchy Linux** — the same Herdr keymap, plus an opt-in keyd Caps Lock remap.
+- **Omarchy Linux** — managed shell tooling without replacing Omarchy's desktop
+  configuration. See [Omarchy Setup](#-omarchy-linux-setup).
 - **Windows 11** — native Herdr setup through PowerShell.
 
 Herdr setup and its Omarchy-compatible keymap are documented in
@@ -63,9 +64,36 @@ Handy aliases (see [`aliases.zsh`](.dotfiles/zsh/.config/zsh/aliases.zsh) /
 | `clone` / `cdc` | clone into / cd to `~/Code/<org>/<repo>` |
 | `roe` | `code roe-local-dev.code-workspace` (never bare `code .`) |
 
+## 🟢 Omarchy Linux Setup
+
+Run the dedicated host setup from this checkout:
+
+```bash
+cd ~/Code/dr3dr3/dotfiles
+bash scripts/setup-omarchy.sh
+```
+
+The script installs Stow, Fish, Nushell, Starship, and Atuin through
+`omarchy pkg add`; links Herdr through its dedicated setup; installs the
+diagram tool; and stows only the portable `bin`, `fish`, `nushell`, and
+`starship` packages. It does not change the login shell or replace Omarchy's
+Hyprland, shell, terminal, or Mise configuration. Open a new terminal and run
+`fish` to use Fish.
+
+Conflicting files are moved under
+`~/.config/dotfiles-backups/omarchy-<timestamp>/` before links are created.
+The setup deliberately uses per-file links and never `stow --adopt`, so
+runtime files written under `~/.config` cannot silently enter this checkout.
+
+The top-level `install.sh` is the legacy Ubuntu installer and refuses to run
+on Omarchy. The Omarchy setup is safe to run repeatedly.
+
 ## 🐳 Dev Container Usage
 
-This repo is designed to be cloned into a project's devcontainer setup. The `install.sh` script sets up the shell environment inside the container — it only modifies the container's home directory (`~`) and does not touch the host workspace.
+This repo is designed to be cloned into a project's devcontainer setup. The
+`scripts/setup-devcontainer.sh` script sets up the shell environment inside
+the container — it only modifies the container's home directory (`~`) and
+does not touch the host workspace.
 
 ### Setup in the Rock of Eye devcontainer
 
