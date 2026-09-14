@@ -120,6 +120,11 @@ brew "zellij"              # terminal multiplexer — persistent sessions that
                             # (Reattach with `zj`; 2x2 workspace with `zjd`.)
 cask "karabiner-elements"  # Ghostty-scoped Caps Lock → Ctrl+Alt+Space remap for
                             # Herdr; rule lives in the karabiner stow package.
+cask "logi-options+"       # MX Keys + MX Vertical button/key customisation.
+                            # Host-native: app-specific Ghostty mappings and
+                            # Harvest shortcuts need macOS Accessibility and
+                            # Input Monitoring permissions. Options+ auto-updates;
+                            # mappings remain machine-local in Logitech state.
 
 # --- AI coding agents (host copies — deliberate exception) -------------------
 # The default is still container-first: agents are installed *inside* the dev

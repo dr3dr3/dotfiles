@@ -117,6 +117,13 @@ These tools belong in a plain host tab and are declared in the root Brewfile:
 | Dotfiles maintenance | `cd ~/Code/dr3dr3/dotfiles`, then `./doctor-mac.sh` or `upd` | Read-only host audit or host updates. |
 | Dotfiles Git | `cd ~/Code/dr3dr3/dotfiles`, then `lazygit` (`lg`) | Host Git TUI only for this repo; use the container's Git tooling for project repos. |
 
+Logi Options+ owns the MX Vertical and MX Keys mappings on macOS. The intended
+layout is: MX Vertical back/forward buttons switch Ghostty panes (`Cmd+[` /
+`Cmd+]`) in its Ghostty profile, the top button sends the Herdr prefix
+(`Ctrl+Alt+Space`), and a spare MX Keys function key opens Harvest's time
+summary (`Option+Cmd+S`). These mappings are machine-local; macOS must grant
+Options+ Accessibility and Input Monitoring access.
+
 Apply the declared tools with `brew bundle install --no-upgrade`, then check
 with `brew bundle check`. Use `ollama serve` for an on-demand local server;
 the existing `o-up` / `o-down` aliases manage the service for container access.
