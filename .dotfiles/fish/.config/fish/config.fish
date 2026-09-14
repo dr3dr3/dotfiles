@@ -120,14 +120,22 @@ abbr -a -- oll 'ollama list'
 abbr -a -- olp 'ollama ps'
 abbr -a -- olr 'ollama run'
 abbr -a -- olu 'ollama pull'
-abbr -a -- olrm 'ollama rm'
-# Server lifecycle (brew formula): o-up binds 0.0.0.0:11434 so in-container
-# agents reach it via host.docker.internal; o-down stops it and frees memory.
-# NB: brew generates the LaunchAgent plist from the formula and ignores a
-# shell-exported OLLAMA_HOST, so we set it via launchctl (the launchd-spawned
-# server inherits it). Not persistent across reboot — rerun o-up after a boot.
-abbr -a -- o-up 'launchctl setenv OLLAMA_HOST 0.0.0.0:11434; and brew services restart ollama'
+abbr -a -- olrm 'ollama rm'   # DELETE from disk (an unload is o-stop)
+# Server lifecycle (brew formula). o-up starts it on Ollama's default
+# 127.0.0.1 bind, which OrbStack containers CAN reach via host.docker.internal
+# (verified 2026-09-14; see env.zsh for the evidence). o-down stops it and frees
+# memory. o-stop unloads the model but leaves the server up.
+#
+# o-expose is the escape hatch, NOT the default: it rebinds to 0.0.0.0 for
+# Docker Desktop (its sandbox blocks host-loopback access), another machine, or
+# a VM. That puts a no-auth inference server on your LAN — only while you need
+# it, and `o-up` puts it back. It uses launchctl because brew generates the
+# LaunchAgent plist from the formula and ignores a shell-exported OLLAMA_HOST
+# (verified 2026-09-03). Neither setting survives a reboot.
+abbr -a -- o-up 'launchctl unsetenv OLLAMA_HOST; brew services restart ollama'
 abbr -a -- o-down 'brew services stop ollama'
+abbr -a -- o-stop 'ollama stop'
+abbr -a -- o-expose 'launchctl setenv OLLAMA_HOST 0.0.0.0:11434; and brew services restart ollama'
 
 # ── JIT editor — always the multi-root workspace, never `code .` ─────────────
 abbr -a -- roe 'code roe-local-dev.code-workspace'

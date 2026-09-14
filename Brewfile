@@ -201,12 +201,16 @@ brew "ollama"              # CLI + server (headless; no menu-bar app). Cleaner f
                             # and stop the service to reclaim memory when idle.
                             # `oll`/`olp`/`olr` aliases drive it. (Swap to
                             # cask "ollama-app" if you want the native menu-bar app.)
-                            # For in-container agents to reach it via
-                            # host.docker.internal it must bind 0.0.0.0 — use
-                            # the `o-up` alias. The exported OLLAMA_HOST covers
-                            # only a shell-started `ollama serve`; the launchd
-                            # service does NOT inherit it (see zsh/env.zsh).
-                            # o-up is not persistent across reboot.
+                            # In-container agents reach it on the DEFAULT
+                            # 127.0.0.1 bind: OrbStack forwards
+                            # host.docker.internal to the host loopback.
+                            # Verified 2026-09-14 — this file previously claimed
+                            # a 0.0.0.0 bind was required, and it is not. Use
+                            # `o-expose` only for Docker Desktop or another
+                            # machine; it is LAN-visible and has no auth.
+                            # MLX: Ollama runs on Apple's MLX on Apple Silicon
+                            # (0.19+), so prefer the `-mlx` model tags — plain
+                            # GGUF tags fall back to the llama.cpp Metal path.
                             # Heads-up: a 32b model is ~20GB resident in unified
                             # memory and competes with the ~16GB dev stack —
                             # local LLM memory is NOT free.

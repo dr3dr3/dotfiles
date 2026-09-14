@@ -126,8 +126,9 @@ summary (`Option+Cmd+S`). These mappings are machine-local; macOS must grant
 Options+ Accessibility and Input Monitoring access.
 
 Apply the declared tools with `brew bundle install --no-upgrade`, then check
-with `brew bundle check`. Use `ollama serve` for an on-demand local server;
-the existing `o-up` / `o-down` aliases manage the service for container access.
+with `brew bundle check`. Use `ollama serve` for an on-demand local server; the
+`o-up` / `o-down` aliases start and stop it, and `o-stop` unloads a model while
+leaving the server running.
 
 Ghostty runs on the **host**; you "work inside" a container by running a shell
 **in a Ghostty pane**. Typical layout — one window, four splits:
@@ -233,16 +234,48 @@ vr <cmd>                         # = varlock run -- <cmd>  (inject resolved env)
 ## 🤖 Local LLM — Ollama (fallback / transient only)
 
 ```bash
-olu qwen2.5-coder:32b     # pull a model
-olr qwen2.5-coder:32b     # run it
+olu qwen3.8:27b-mlx       # pull a model  (prefer -mlx tags — see below)
+olr qwen3.8:27b-mlx       # run it
 olp                       # what's resident in unified memory RIGHT NOW
-olrm qwen2.5-coder:32b    # evict it to reclaim memory
+o-stop qwen3.8:27b-mlx    # UNLOAD from memory (model stays on disk)
+olrm qwen3.8:27b-mlx      # DELETE from disk — not what you want to free RAM
 ```
 
-> **Memory budget (64GB unified):** dev stack ≈16GB + a 32b model ≈20GB resident
+> ⚠️ **`olrm` is `ollama rm` — it deletes the model**, an 18GB re-download. This
+> page used to recommend it for reclaiming memory, which was wrong. To free
+> unified memory use **`o-stop`** (`ollama stop`), or just wait: Ollama unloads
+> after `OLLAMA_KEEP_ALIVE`, default 5 minutes. `olp` shows an `UNTIL` column.
+
+> **Memory budget (64GB unified):** dev stack ≈16GB + a 27B model ≈19GB resident
 > + Claude Code. It fits, but the model and the containers share the same pool —
-> **`olrm` the model when you're done** so it doesn't starve the stack. Local
+> **`o-stop` the model when you're done** so it doesn't starve the stack. Local
 > LLM memory is not free.
+
+**Which tag — measured, not assumed.** Ollama runs on Apple's MLX on Apple
+Silicon (0.19+), so `-mlx` tags get the MLX engine and plain GGUF tags fall back
+to Metal. That makes `-mlx` the obvious pick, and on this host it is the wrong
+one. Benchmarked 2026-09-14, 12.6k-token prompt:
+
+| Tag | Prefill | Generation | Size |
+| --- | --- | --- | --- |
+| **`qwen3.8:27b-mtp-q4_K_M`** | **314 tok/s** | 26.2 tok/s | 17GB |
+| `qwen3.8:27b-mlx` | 129 tok/s | 24.5 tok/s | 18GB |
+
+The `mtp` tags carry built-in multi-token prediction (self-speculative decoding),
+and that beats the MLX engine by **2.4x on prefill** — the number you actually
+feel in an agentic loop. End to end, one `pi -p` turn: **134s vs 277s**. The
+trade is quantization quality: `nvfp4` (mlx) is a better 4-bit format than
+`Q4_K_M`, so keep `-mlx` if you find MTP's output worse on your work.
+
+**The second call is ~0s.** Ollama caches the prompt prefix and Pi resends the
+same system prompt and tools every turn, so the prefill is paid once per session,
+not per turn. `--thinking off` (→ `reasoning_effort: none`, verified to produce
+zero reasoning tokens) is the other big lever for tool-heavy turns.
+
+**Containers reach it without any extra binding.** OrbStack forwards
+`host.docker.internal` to the host loopback, so the default 127.0.0.1 bind is
+enough — and keeps a no-auth inference server off your LAN. `o-expose` is the
+escape hatch for Docker Desktop or another machine; `o-up` rebinds to loopback.
 
 ---
 
@@ -364,7 +397,7 @@ repo says?"* — which is where the real problems have hidden:
 | the **working tree is clean** | three installers have written into this repo via folded symlinks |
 | all tracked files are **LF** | CRLF drifted in three times before `.gitattributes` |
 | node comes **from mise**, `devcontainer` exists, `~/.local/bin` on PATH | a stray brew/nvm node shadowing mise is invisible otherwise |
-| ollama is **bound to all interfaces** | bound to loopback it is unreachable from containers |
+| ollama's bind **matches the container engine** | the old check demanded a 0.0.0.0 bind OrbStack never needed, and failed on a healthy host |
 | `brew autoupdate` **actually runs** | an untrusted tap breaks the CLI while the launchd job keeps working |
 | Handy's **Auto Submit is off**, plus the rest of its profile | it is a UI toggle, not a tracked file — and on, dictation presses Return in your terminal |
 

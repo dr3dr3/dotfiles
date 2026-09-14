@@ -19,6 +19,15 @@ persistence, and Herdr's agent integrations. No new Docker volume is needed.
 | Herdr config, session snapshots, named sessions, pane history | `~/.config/herdr`, existing config volume |
 | Atuin history, keys, local identity and record data | `~/.config/atuin/data`, existing config volume, linked from the standard data directory |
 | Atuin configuration | `~/.config/atuin/config.toml`, copied on first setup |
+| Pi's local-model provider (`~/.pi/agent/models.json`) | `~/.ai/pi/models.json`, existing AI volume, symlinked from the path Pi reads |
+
+`~/.pi` is **not** one of the mounted paths, so anything written there lives in
+the container layer and dies with `dcb`. `dotfiles/scripts/setup-pi-ollama.sh`
+therefore writes to `~/.ai/pi/models.json` and symlinks `~/.pi/agent/models.json`
+at it — the same shape as the Codex migration below, reusing the AI volume, so
+neither local-dev-env nor dotai needs a change. Re-run it from the **host** after
+pulling or removing an Ollama model; the list is generated from what the host
+actually has.
 
 ## First rebuild after adopting Codex persistence
 

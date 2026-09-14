@@ -11,8 +11,10 @@
 #     error to hint at it
 #   * `brew autoupdate` could not run at all (tap untrusted), while the launchd
 #     job kept working, so nothing looked wrong
-#   * Ollama sat on 127.0.0.1 despite an exported OLLAMA_HOST, making it
-#     unreachable from containers — the exact thing the export existed to fix
+#   * a check here asserted Ollama had to bind 0.0.0.0 to serve containers. It
+#     does not under OrbStack, so the check failed on a healthy host for weeks
+#     (corrected 2026-09-14) — a reminder that an assertion is only as good as
+#     the belief behind it, and that both directions need testing
 #   * an app installer wrote a hardcoded /Users/<name>/ path into a tracked file
 #
 # None of those are catchable by linting the repo. They need assertions against
@@ -207,17 +209,38 @@ esac
 # =============================================================================
 section "Services"
 # Ollama only matters if it is running; not running is a valid state (it frees
-# memory). But running while bound to loopback is a silent trap: containers
-# cannot reach it, and an exported OLLAMA_HOST does NOT fix the launchd service.
+# memory).
+#
+# THIS CHECK USED TO BE BACKWARDS. It failed whenever Ollama was on 127.0.0.1,
+# asserting that containers could not reach it — so every `upd` reported a
+# broken host that was working fine. Verified 2026-09-14 with the server bound
+# to loopback ONLY: a fresh `docker run alpine` on the default bridge and the
+# roe-devcontainer both reached it through host.docker.internal, while this
+# host's LAN address refused. OrbStack forwards host.docker.internal to the host
+# loopback deliberately (docs.orbstack.dev/docker/network); Docker Desktop's
+# sandbox blocks that, which is the case the wide bind actually exists for.
+#
+# So loopback is now the expected, and safer, state: a wildcard bind puts a
+# no-auth inference server on the LAN. The check warns in both directions rather
+# than failing, because which one is right depends on the container engine.
 listen="$(lsof -nP -iTCP -sTCP:LISTEN 2>/dev/null | grep 11434)"
+engine="$(docker context show 2>/dev/null || echo unknown)"
 if [[ -z "$listen" ]]; then
   pass "ollama not listening (idle — fine; \`o-up\` starts it)"
 elif grep -qE '\*:11434|0\.0\.0\.0:11434' <<<"$listen"; then
-  pass "ollama bound to all interfaces — reachable from containers"
+  if [[ "$engine" == "orbstack" ]]; then
+    warn "ollama is bound to ALL interfaces — unnecessary under OrbStack"
+    hint "containers reach a loopback-bound server via host.docker.internal already"
+    hint "this exposes a no-auth inference server to the LAN; \`o-up\` rebinds to loopback"
+  else
+    pass "ollama bound to all interfaces (docker context: $engine — wide bind needed)"
+  fi
+elif [[ "$engine" == "orbstack" ]]; then
+  pass "ollama on loopback — OrbStack containers reach it via host.docker.internal"
 else
-  fail "ollama bound to loopback only — containers CANNOT reach it"
-  hint "$(awk '{print $1, $9}' <<<"$listen" | head -1)"
-  hint "run \`o-up\` (exported OLLAMA_HOST does not reach the launchd service)"
+  warn "ollama on loopback, but docker context is '$engine', not orbstack"
+  hint "only OrbStack forwards host.docker.internal to the host loopback"
+  hint "if containers cannot reach it, run \`o-expose\` (binds 0.0.0.0 — LAN-visible)"
 fi
 
 if brew autoupdate status >/dev/null 2>&1; then
