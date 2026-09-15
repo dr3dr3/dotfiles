@@ -55,9 +55,8 @@ for shell in bash zsh; do
   fi
   grep -qxF "$line" "$rc" 2>/dev/null || printf '\n%s\n' "$line" >> "$rc"
 done
-if ! grep -q "atuin init fish" "${XDG_CONFIG_HOME:-$HOME/.config}/fish/config.fish" 2>/dev/null; then
-mkdir -p "${XDG_CONFIG_HOME:-$HOME/.config}/fish/conf.d"
-cat > "${XDG_CONFIG_HOME:-$HOME/.config}/fish/conf.d/atuin.fish" <<'FISH'
+fish_conf="${XDG_CONFIG_HOME:-$HOME/.config}/fish/conf.d/atuin.fish"
+fish_init=$(cat <<'FISH'
 if status is-interactive
     fish_add_path "$HOME/.local/bin"
     if type -q atuin
@@ -65,6 +64,16 @@ if status is-interactive
     end
 end
 FISH
+)
+if grep -q "atuin init fish" "${XDG_CONFIG_HOME:-$HOME/.config}/fish/config.fish" 2>/dev/null; then
+  # conf.d runs before config.fish. Remove only our exact legacy fallback so
+  # the managed config initializes once, after fzf installs its bindings.
+  if [[ -f "$fish_conf" ]] && [[ "$(cat "$fish_conf")" == "$fish_init" ]]; then
+    rm -- "$fish_conf"
+  fi
+else
+  mkdir -p "$(dirname "$fish_conf")"
+  printf '%s\n' "$fish_init" > "$fish_conf"
 fi
 atuin --version
 echo "Atuin ready. Open a new shell; Ctrl-R searches history. Sync remains opt-in."
