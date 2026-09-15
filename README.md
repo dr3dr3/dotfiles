@@ -106,6 +106,8 @@ The personal hook installs Fish, Zsh, Nushell, Vim and Starship when missing, ap
 managed Fish/Zsh/Nushell/Vim/Starship configuration, sets up Herdr and Atuin, and
 installs pinned lazygit, Glow, fd, eza, and zoxide binaries under `~/.local/bin`.
 Bash retains its existing initialization and gains Starship and Atuin.
+Fish uses Atuin on Ctrl-R. For Claude/Codex capture and a hands-on walkthrough, see
+[the dotai Atuin guide](https://github.com/dr3dr3/dotai/blob/main/docs/atuin-history.md).
 Open a new terminal afterward; run `fish` or `zsh` to choose that shell.
 Herdr uses Fish for new panes; the account default shell is unchanged. Nushell uses the pinned official 0.115.1 Linux release for ARM64 or x86_64.
 Host-only tooling is not installed by this hook. Prompt icons use the font configured in your host terminal.

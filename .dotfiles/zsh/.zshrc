@@ -76,3 +76,6 @@ if [[ -f /workspace/scripts/roe.sh ]]; then
   unalias roe 2>/dev/null || true
   function roe { bash /workspace/scripts/roe.sh "$@"; }
 fi
+
+# dotai: devcontainer agent aliases
+[ "${DEVCONTAINER:-}" != "1" ] || . /workspace/.ai/dotai/shell/devcontainer-agents.sh
