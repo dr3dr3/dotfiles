@@ -20,6 +20,17 @@
 # committing them would push broken links to other machines.
 .dotfiles/fish/.config/fish/completions/
 
+# --- Python bytecode ---------------------------------------------------------
+# Build artefacts, regenerated on every test run. Six of these were committed in
+# #28, and tracked .pyc files are worse than untidy here: running `python3 -m
+# unittest discover -s tests` REWRITES them, so the working tree is dirty
+# immediately afterwards. That trips doctor-mac.sh's clean-tree assertion on
+# every run, and `pi-batch` refuses to start against a dirty tree at all — so
+# the overnight agent loop could not run while these were tracked.
+# The bare pattern matches at every level, not just the root.
+__pycache__/
+*.pyc
+
 # --- macOS ------------------------------------------------------------------
 # Finder metadata. Written into any directory Finder browses (including this
 # repo, and into stowed folders via the folded symlinks), never useful in
