@@ -182,6 +182,10 @@ cat <<'EOF'
     • Auto Submit stays OFF. It would append Return to every transcript, i.e.
       RUN whatever it heard when you dictate into a terminal. doctor-mac.sh fails
       if it is ever on.
+    • Ulanzi Vibe Key: connect the AU05 in Ulanzi Studio, then run:
+        ./scripts/setup-handy-vibe-key.sh
+      It maps Voice Input to Ctrl+Option+Command+R and preserves Globe via Karabiner.
+      Finish the required in-app device sync printed by that script.
 
   Default shell
     • If not already zsh:  chsh -s /bin/zsh

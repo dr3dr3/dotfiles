@@ -1,0 +1,26 @@
+{
+  "title": "Handy dictation from Ulanzi Vibe Key",
+  "rules": [
+    {
+      "description": "Handy: Fn/Globe sends Ctrl+Option+Command+R (Ulanzi Vibe Key)",
+      "manipulators": [
+        {
+          "type": "basic",
+          "from": {
+            "key_code": "fn"
+          },
+          "to": [
+            {
+              "key_code": "r",
+              "modifiers": [
+                "left_control",
+                "left_option",
+                "left_command"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
