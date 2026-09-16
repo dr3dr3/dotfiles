@@ -64,6 +64,10 @@ link_config() {
 link_restore_tooling() {
   local launch_src="$REPO_DIR/.dotfiles/herdr/.config/herdr/launch.toml"
   local launch_dst="${XDG_CONFIG_HOME:-$HOME/.config}/herdr/launch.toml"
+  # This runs before link_config, so on a fresh devcontainer (~/.config is an
+  # empty volume) the directory does not exist yet and the ln would abort the
+  # whole script under set -e, leaving Herdr with no managed config at all.
+  mkdir -p "$(dirname "$launch_dst")"
   if [[ ! -e "$launch_dst" && ! -L "$launch_dst" ]]; then
     ln -s "$launch_src" "$launch_dst"
     echo "✓ Herdr launch.toml linked: $launch_dst → $launch_src"
