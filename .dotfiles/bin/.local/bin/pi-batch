@@ -46,7 +46,10 @@ BRIEF=""; TEST_CMD=""; CONTAINER=""; WORKDIR="/workspace"; DRY_RUN=0
 MODEL="${PI_LOCAL_MODEL:-}"
 THINKING="off"
 KEEP_ALIVE="${PI_BATCH_KEEP_ALIVE:-12h}"
-LOG_DIR="${PI_BATCH_LOG_DIR:-$HOME/host-share/pi-batch}"
+# Host-only on purpose. ~/host-share is bind-mounted INTO the containers, so
+# putting run logs there would let an agent read its own previous runs — a
+# subtle way for one night's mistakes to become the next night's context.
+LOG_DIR="${PI_BATCH_LOG_DIR:-$HOME/.local/state/pi-batch}"
 
 info() { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
 ok()   { printf '\033[1;32m  ✓\033[0m %s\n' "$*"; }
@@ -116,6 +119,7 @@ STAMP="$(date +%Y%m%d-%H%M%S)"
 BATCH_BRANCH="pi-batch/$STAMP"
 mkdir -p "$LOG_DIR"
 LOG="$LOG_DIR/$STAMP.log"
+RECORD="$LOG_DIR/$STAMP.json"
 ok "log: $LOG"
 
 if [[ -z "$TEST_CMD" ]]; then
@@ -217,6 +221,52 @@ if [[ -n "$TEST_CMD" ]]; then
   fi
 fi
 
+# --- structured record -------------------------------------------------------
+# The log is for reading; this is for `pi-batch-review` to query. Keeping them
+# separate means the review tool never has to parse prose.
+DIFFSTAT="$(dex "git diff --shortstat '$BASE_SHA'..HEAD" | tr -d '\r')"
+COMMIT_JSON="$(dex "git log --format='%H%x1f%s' '$BASE_SHA'..HEAD" | tr -d '\r')"
+STAMP="$STAMP" MODEL="$MODEL" CONTAINER="$CONTAINER" WORKDIR="$WORKDIR" \
+BASE_BRANCH="$BASE_BRANCH" BASE_SHA="$BASE_SHA" BATCH_BRANCH="$BATCH_BRANCH" \
+BRIEF="$BRIEF" AGENT_RC="$AGENT_RC" ELAPSED="$ELAPSED" BASELINE="$BASELINE" \
+VERDICT="$VERDICT" LOG="$LOG" TEST_CMD="$TEST_CMD" THINKING="$THINKING" \
+DIFFSTAT="$DIFFSTAT" COMMIT_JSON="$COMMIT_JSON" \
+/usr/bin/python3 -c '
+import json, os, re
+commits = []
+for line in os.environ.get("COMMIT_JSON", "").splitlines():
+    if "\x1f" in line:
+        sha, subject = line.split("\x1f", 1)
+        commits.append({"sha": sha, "subject": subject})
+def num(pattern, text):
+    m = re.search(pattern, text)
+    return int(m.group(1)) if m else 0
+ds = os.environ.get("DIFFSTAT", "")
+rec = {
+    "stamp":        os.environ["STAMP"],
+    "model":        os.environ["MODEL"],
+    "thinking":     os.environ["THINKING"],
+    "container":    os.environ["CONTAINER"],
+    "workdir":      os.environ["WORKDIR"],
+    "base_branch":  os.environ["BASE_BRANCH"],
+    "base_sha":     os.environ["BASE_SHA"],
+    "batch_branch": os.environ["BATCH_BRANCH"],
+    "brief":        os.environ["BRIEF"],
+    "test_cmd":     os.environ["TEST_CMD"],
+    "agent_exit":   int(os.environ["AGENT_RC"]),
+    "elapsed_s":    int(os.environ["ELAPSED"]),
+    "commits":      commits,
+    "diffstat":     {"files":      num(r"(\d+) files? changed", ds),
+                     "insertions": num(r"(\d+) insertions?", ds),
+                     "deletions":  num(r"(\d+) deletions?", ds)},
+    "baseline":     os.environ["BASELINE"],
+    "verdict":      os.environ["VERDICT"],
+    "log":          os.environ["LOG"],
+    "session":      "pi-batch-" + os.environ["STAMP"],
+}
+print(json.dumps(rec, indent=2))
+' > "$RECORD" && ok "record: $RECORD"
+
 cat <<EOF
 
 ────────────────────────────────────────────────────────────────────────────
@@ -229,8 +279,8 @@ pi-batch $STAMP
   log       $LOG
   session   pi --resume  (named pi-batch-$STAMP)
 
-Review:  git -C <repo> log $BASE_SHA..$BATCH_BRANCH -p
-Discard: git branch -D $BATCH_BRANCH
+Review:  pi-batch-review $STAMP
+Discard: git branch -D $BATCH_BRANCH   (deleting the branch IS marking it reviewed)
 ────────────────────────────────────────────────────────────────────────────
 EOF
 

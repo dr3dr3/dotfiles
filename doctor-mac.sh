@@ -390,6 +390,71 @@ case "$dictation_hotkey_enabled" in
   *) warn "could not determine the macOS double-Fn Dictation shortcut state" ;;
 esac
 
+
+# =============================================================================
+section "Overnight agent runs (pi-batch)"
+# Two different silent failures live here.
+#
+# The first is work you never look at: an unattended run leaves a branch, and a
+# branch nobody reviews is indistinguishable from one that was never created.
+# "Outstanding" is defined as "the branch still exists" — deleting or merging it
+# IS the review, so there is no separate flag to drift out of sync.
+#
+# The second cost a real outage on 2026-09-16. dotai symlinks the whole
+# ~/.pi/agent directory onto the AI volume, so scripts/setup-pi-ollama.sh
+# resolved the file and its "persistent" target to the SAME path and linked it
+# to itself. Pi then failed with ELOOP and lost every provider — including the
+# hosted ones it did not manage. The script now refuses to do that; this asserts
+# the live result, because a config Pi cannot parse is invisible until you run
+# an agent and it says "Unknown provider".
+PI_STATE_DIR="${PI_BATCH_LOG_DIR:-$HOME/.local/state/pi-batch}"
+if [[ -d "$PI_STATE_DIR" ]] && ls "$PI_STATE_DIR"/*.json >/dev/null 2>&1; then
+  pi_out=0; pi_fail=0; pi_old=0; pi_total=0
+  cutoff=$(( $(date +%s) - ${PI_BATCH_RETENTION_DAYS:-30}*86400 ))
+  for rec in "$PI_STATE_DIR"/*.json; do
+    pi_total=$((pi_total+1))
+    read -r st cont wd br vd < <(/usr/bin/python3 -c '
+import json,sys
+d=json.load(open(sys.argv[1]))
+print(d["stamp"], d["container"], d["workdir"], d["batch_branch"], d["verdict"].split()[0])' "$rec" 2>/dev/null) || continue
+    [[ "$vd" == "FAIL" ]] && pi_fail=$((pi_fail+1))
+    ts=$(date -j -f "%Y%m%d-%H%M%S" "$st" +%s 2>/dev/null || echo 0)
+    [[ "$ts" -ne 0 && "$ts" -lt "$cutoff" ]] && pi_old=$((pi_old+1))
+    if docker inspect "$cont" >/dev/null 2>&1 &&
+       docker exec -w "$wd" "$cont" git rev-parse --verify --quiet "refs/heads/$br" >/dev/null 2>&1; then
+      pi_out=$((pi_out+1))
+    fi
+  done
+  if [[ $pi_out -gt 0 ]]; then
+    warn "$pi_out of $pi_total agent run(s) unreviewed — their branches still exist"
+    hint "pi-batch-review        # what they did"
+  else
+    pass "no unreviewed agent runs ($pi_total recorded)"
+  fi
+  [[ $pi_fail -gt 0 ]] && { warn "$pi_fail run(s) ended with failing tests"; hint "pi-batch-review --failed"; }
+  [[ $pi_old  -gt 0 ]] && { warn "$pi_old record(s) past the retention window"; hint "pi-batch-review --prune"; }
+else
+  pass "no pi-batch runs recorded yet"
+fi
+
+# Pi's provider config must actually load. Check every running container that
+# has one, since a broken link is silent until an agent run fails.
+for c in $(docker ps --format '{{.Names}}' 2>/dev/null); do
+  cfg="$(docker exec "$c" sh -lc 'echo $HOME/.pi/agent/models.json' 2>/dev/null | tr -d '\r')"
+  [[ -n "$cfg" ]] || continue
+  # -e FOLLOWS the link and is FALSE on a loop, which would skip the very state
+  # this check exists for — the first version of this check did exactly that and
+  # stayed silent through a broken config. -L catches a link that cannot resolve.
+  docker exec "$c" sh -lc "[ -e '$cfg' ] || [ -L '$cfg' ]" 2>/dev/null || continue
+  if docker exec "$c" sh -lc "python3 -c 'import json,sys; json.load(open(sys.argv[1]))' '$cfg'" >/dev/null 2>&1; then
+    n="$(docker exec "$c" sh -lc "python3 -c 'import json,sys; print(len(json.load(open(sys.argv[1])).get(\"providers\",{})))' '$cfg'" 2>/dev/null | tr -d '\r')"
+    pass "$c — Pi config loads (${n:-?} provider(s))"
+  else
+    fail "$c — Pi's models.json does NOT parse (a self-referential symlink does this)"
+    hint "ls -l \$HOME/.pi/agent/models.json inside the container; restore a .bak.* beside it"
+    hint "then re-run: ./scripts/setup-pi-ollama.sh $c"
+  fi
+done
 # =============================================================================
 printf '\n\033[1m%s\033[0m\n' "───────────────────────────────────────────────"
 printf '  \033[1;32m%d passed\033[0m · \033[1;33m%d warning(s)\033[0m · \033[1;31m%d failure(s)\033[0m\n' \

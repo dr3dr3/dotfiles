@@ -230,8 +230,32 @@ PI_PATH="$HOME_IN_C/$PI_MODELS_PATH"          # where Pi actually reads
 PERSIST_DIR="$HOME_IN_C/.ai/pi"               # on the AI volume, survives rebuilds
 
 # Is ~/.ai a real mount in this container, or just a directory in the layer?
+AI_IS_VOLUME=0
 if docker exec "$CONTAINER" sh -lc "mountpoint -q '$HOME_IN_C/.ai' 2>/dev/null" \
    || docker exec "$CONTAINER" sh -lc "grep -q ' $HOME_IN_C/.ai ' /proc/self/mountinfo 2>/dev/null"; then
+  AI_IS_VOLUME=1
+fi
+
+# Does the path Pi reads ALREADY resolve onto the volume? dotai links the whole
+# ~/.pi/agent directory at ~/.ai/pi on this host, so the file is persistent
+# before we touch anything.
+#
+# This check exists because its absence caused a real outage. Without it the
+# code below resolved $PI_PATH and $TARGET to the SAME file and ran
+# `ln -sfn "$TARGET" "$PI_PATH"`, producing a symlink pointing at itself; Pi
+# then failed with ELOOP and lost every provider. Compare the canonical paths,
+# never the literal ones.
+PI_PATH_REAL="$(docker exec "$CONTAINER" sh -lc \
+  "readlink -f '$(dirname "$PI_PATH")' 2>/dev/null" | tr -d '\r')/$(basename "$PI_PATH")"
+TARGET_REAL="$(docker exec "$CONTAINER" sh -lc \
+  "readlink -f '$PERSIST_DIR' 2>/dev/null" | tr -d '\r')/models.json"
+
+if [[ "$AI_IS_VOLUME" == "1" && "$PI_PATH_REAL" == "$TARGET_REAL" ]]; then
+  TARGET="$PI_PATH"
+  PERSISTENT=0            # nothing to link — it is already where it needs to be
+  ok "~/$PI_MODELS_PATH already resolves onto the AI volume ($PI_PATH_REAL)"
+  ok "  already rebuild-safe; no symlink needed"
+elif [[ "$AI_IS_VOLUME" == "1" ]]; then
   TARGET="$PERSIST_DIR/models.json"
   PERSISTENT=1
   ok "~/.ai is a volume — storing on it so a rebuild cannot eat this"
@@ -342,7 +366,11 @@ if [[ "$PERSISTENT" == "1" ]]; then
       mv '$PI_PATH' '$PI_PATH.pre-persistence.$STAMP'
       echo '  moved aside: $PI_PATH.pre-persistence.$STAMP'
     fi
-    ln -sfn '$TARGET' '$PI_PATH'
+    if [ \"\$(readlink -f '$PI_PATH' 2>/dev/null)\" = \"\$(readlink -f '$TARGET' 2>/dev/null)\" ]; then
+      echo '  already the same file — not linking'
+    else
+      ln -sfn '$TARGET' '$PI_PATH'
+    fi
   " || die "Wrote the file but could not link $PI_PATH to it."
   ok "Linked ~/$PI_MODELS_PATH -> ~/.ai/pi/models.json (survives \`dcb\`)"
 fi
