@@ -26,8 +26,12 @@ if ! command -v keyd >/dev/null 2>&1; then
 fi
 
 sudo install -D -m 0644 "$SOURCE" "$TARGET"
-sudo systemctl enable --now keyd
-sudo keyd reload
+# restart rather than enable --now + reload: on a first install the daemon has
+# not created /var/run/keyd.socket yet when `keyd reload` runs, so the reload
+# fails and the script exits non-zero even though the remap is active. A
+# restart both starts a fresh service and re-reads the config on a running one.
+sudo systemctl enable keyd
+sudo systemctl restart keyd
 
 echo "✓ Caps Lock now sends Ctrl+Alt+Space on this Linux host."
 echo "  This replaces Omarchy's Caps Lock compose/emoji sequences."

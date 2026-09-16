@@ -59,7 +59,11 @@ root="$(find_root)" || {
 
 command -v devcontainer >/dev/null 2>&1 || {
   echo "devsh: the devcontainer CLI is not on PATH." >&2
-  echo "       brew install devcontainer   (declared in this repo's Brewfile)" >&2
+  if [[ "$(uname -s)" == Darwin ]]; then
+    echo "       brew install devcontainer   (declared in this repo's Brewfile)" >&2
+  else
+    echo "       mise use -g npm:@devcontainers/cli" >&2
+  fi
   exit 1
 }
 
