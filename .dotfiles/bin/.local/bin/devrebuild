@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# =============================================================================
+# ~/.local/bin/devrebuild — rebuild this project's devcontainer and come back
+# (stow package: bin)
+#
+# The four things that are easy to forget, in the order they must happen:
+#
+#   1. snapshot the Herdr session (every pane's Claude/Codex session id) onto
+#      the persisted ~/.config volume — insurance if native restore misses one
+#   2. make sure /home/vscode is on the home volume; if it is still ephemeral
+#      (a container from before local-dev-env #537) seed it NOW, because the
+#      rebuild is the moment that home is thrown away
+#   3. stop the Herdr server cleanly so session.json is complete, not mid-write
+#   4. rebuild through local-dev-env's own script, then attach with devherd —
+#      the first attach is what triggers Herdr's restore + agent resume
+#
+# Usage:
+#   devrebuild                 # from anywhere inside the project checkout
+#   devrebuild --no-cache      # passed through to scripts/rebuild-devcontainer.sh
+#
+# Afterwards, inside the container:
+#   herdr-replay               # plan for anything native restore did not bring back
+#   herdr-after-restore        # relaunch service commands declared in launch.toml
+#   fm                         # the Firstmate captain — NEVER resume it by id
+# =============================================================================
+set -euo pipefail
+
+find_root() {
+  local d="$PWD"
+  while [[ "$d" != "/" ]]; do
+    if [[ -f "$d/.devcontainer/devcontainer.json" || -f "$d/.devcontainer.json" ]]; then
+      printf '%s\n' "$d"; return 0
+    fi
+    d="$(dirname "$d")"
+  done
+  return 1
+}
+
+root="$(find_root)" || { echo "devrebuild: no devcontainer found in $PWD or any parent." >&2; exit 1; }
+[[ -x "$root/scripts/rebuild-devcontainer.sh" ]] || { echo "devrebuild: $root/scripts/rebuild-devcontainer.sh missing — is this the local-dev-env checkout on a recent main?" >&2; exit 1; }
+command -v devsh >/dev/null || { echo "devrebuild: devsh not on PATH" >&2; exit 1; }
+
+step() { printf '\n\033[1m── %s\033[0m\n' "$*"; }
+
+step "1/4 Herdr snapshot (session ids → ~/.config/herdr/snapshots)"
+if ! devsh bash -lc 'command -v herdr-snapshot >/dev/null && herdr-snapshot'; then
+  echo "   (no running container or no Herdr server — continuing; native restore will use session.json)"
+fi
+
+step "2/4 Home volume"
+# Runs inside; a no-op when /home/vscode is already a mount, otherwise merges
+# the current home into the volume so the rebuild does not discard it.
+devsh bash -lc 'bash /workspace/scripts/seed-home-volume.sh --force' || {
+  echo "devrebuild: could not confirm the home volume — refusing to rebuild an ephemeral home." >&2; exit 1; }
+
+step "3/4 Stop Herdr cleanly (flushes session.json)"
+devsh bash -lc 'herdr server stop' 2>/dev/null || echo "   (no Herdr server running)"
+
+step "4/4 Rebuild"
+( cd "$root" && scripts/rebuild-devcontainer.sh "$@" )
+
+step "Attach — Herdr restores layout and resumes agents on this first attach"
+echo "   then inside:  herdr-replay   ·   herdr-after-restore   ·   fm"
+exec devherd

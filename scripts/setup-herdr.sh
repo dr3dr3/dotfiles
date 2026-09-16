@@ -58,7 +58,26 @@ link_config() {
   echo "✓ Herdr config linked: $CONFIG_DST → $CONFIG_SRC"
 }
 
+# Rebuild-restore helpers (docs/HERDR.md "Surviving a devcontainer rebuild"):
+# launch.toml declares service commands to relaunch per pane; the three scripts
+# snapshot the live session, replay a snapshot, and rerun those commands.
+link_restore_tooling() {
+  local launch_src="$REPO_DIR/.dotfiles/herdr/.config/herdr/launch.toml"
+  local launch_dst="${XDG_CONFIG_HOME:-$HOME/.config}/herdr/launch.toml"
+  if [[ ! -e "$launch_dst" && ! -L "$launch_dst" ]]; then
+    ln -s "$launch_src" "$launch_dst"
+    echo "✓ Herdr launch.toml linked: $launch_dst → $launch_src"
+  fi
+  mkdir -p "$HOME/.local/bin"
+  local tool
+  for tool in herdr-snapshot herdr-replay herdr-after-restore; do
+    ln -sfn "$REPO_DIR/scripts/herdr/$tool" "$HOME/.local/bin/$tool"
+  done
+  echo "✓ Herdr restore tooling on PATH: herdr-snapshot, herdr-replay, herdr-after-restore"
+}
+
 install_herdr
+link_restore_tooling
 # The devcontainer opts into Fish without changing the portable host config.
 if [[ "${HERDR_CONTAINER_FISH:-0}" == 1 ]]; then
   command -v fish >/dev/null
