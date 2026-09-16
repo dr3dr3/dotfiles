@@ -38,18 +38,50 @@ RESUME = {"claude": ["--resume"], "codex": ["resume"], "pi": ["--session"]}
 
 def herdr(*args: str) -> dict:
     out = subprocess.run(["herdr", *args], capture_output=True, text=True, check=False)
+    # herdr puts its error envelope on STDERR and leaves stdout EMPTY when the
+    # server is down. Parsing stdout alone turned that into `json.loads("{}")`,
+    # so the "error" branch below never fired and the caller hit a bare
+    # `KeyError: 'snapshot'` on an empty dict instead of being told the server
+    # was not running. Read stderr when stdout has nothing.
+    raw = out.stdout.strip() or out.stderr.strip()
     try:
-        data = json.loads(out.stdout or "{}")
+        data = json.loads(raw or "{}")
     except json.JSONDecodeError:
         raise SystemExit(f"herdr {' '.join(args)}: non-JSON output: {out.stdout[:200]} {out.stderr[:200]}")
     if "error" in data:
         raise SystemExit(f"herdr {' '.join(args)}: {data['error'].get('message', data['error'])}")
+    if out.returncode != 0 and not data:
+        raise SystemExit(f"herdr {' '.join(args)}: exited {out.returncode} with no output")
     return data.get("result", data)
 
 
+def unwrap_snapshot(data: dict, source: str) -> dict:
+    """Return the snapshot body from any shape herdr hands us.
+
+    `herdr api snapshot` wraps it as {"result": {"snapshot": {...}}} and
+    herdr-snapshot saves that response verbatim, but the live call has been seen
+    returning a result with no "snapshot" key at all — which used to surface as a
+    bare `KeyError: 'snapshot'` traceback with no hint of what went wrong. Accept
+    every shape we know, and name the problem when it is none of them.
+    """
+    if isinstance(data, dict):
+        result = data.get("result")
+        if isinstance(result, dict) and isinstance(result.get("snapshot"), dict):
+            return result["snapshot"]
+        if isinstance(data.get("snapshot"), dict):
+            return data["snapshot"]
+        if "workspaces" in data:
+            return data
+    keys = ", ".join(sorted(data)) if isinstance(data, dict) else type(data).__name__
+    raise SystemExit(
+        f"{source}: no snapshot in the response (top-level: {keys}). "
+        "If the server was just started it may not have a session yet — "
+        "attach with `herdr`, or pass --snapshot <file>."
+    )
+
+
 def load_snapshot(path: Path) -> dict:
-    data = json.loads(path.read_text())
-    return data["result"]["snapshot"] if "result" in data else data
+    return unwrap_snapshot(json.loads(path.read_text()), str(path))
 
 
 def latest_snapshot() -> Path:
@@ -220,7 +252,7 @@ def main() -> int:
 
     snap_path = a.snapshot or latest_snapshot()
     snap = load_snapshot(snap_path)
-    live = load_snapshot(a.live) if a.live else herdr("api", "snapshot")["snapshot"]
+    live = load_snapshot(a.live) if a.live else unwrap_snapshot(herdr("api", "snapshot"), "herdr api snapshot")
     plan = build_plan(snap, live, a.workspace)
     print(f"snapshot: {snap_path}")
     if not a.apply:
