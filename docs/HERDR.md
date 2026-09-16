@@ -249,3 +249,34 @@ requirements for every machine:
   not activate it.
 
 Recheck configuration before relying on the currently different prefixes.
+
+## Surviving a devcontainer rebuild
+
+A rebuild ends every process in the container: the Herdr server, every
+agent, every shell. What comes back, and how:
+
+| What | Comes back via | Notes |
+|---|---|---|
+| Workspaces, tabs, panes, cwd, layout, focus | Herdr's own `session.json` (on the persisted `~/.config` volume), restored on the **first attach** | nothing to do |
+| Claude / Codex agent panes | `[session] resume_agents_on_restore = true` → `claude --resume <id>` / `codex resume <id>` on that attach | only panes that reported a session id through the official integration |
+| Firstmate captain and Treehouse worker panes | **`fm`** — never a resume | a resumed pane has no `ROE_FIRSTMATE_*` environment, so it would run *unsandboxed*; `herdr-replay` refuses these on purpose |
+| Long-running commands (`make port-forward`, tunnels, watchers) | `herdr-after-restore`, from `~/.config/herdr/launch.toml` | Herdr does not preserve processes; declare the panes that hold services |
+| Scrollback | not restored | `pane_history` is deliberately off — see the comment in `config.toml` |
+
+The routine, from the host checkout:
+
+```bash
+devrebuild                # snapshot → home-volume check → clean Herdr stop → rebuild → devherd
+```
+
+Then inside, once the layout is back:
+
+```bash
+herdr-replay              # plan for anything native restore missed (dry-run; --apply to run)
+herdr-after-restore       # relaunch the service commands in launch.toml
+fm                        # the captain, sandboxed
+```
+
+`herdr-snapshot` writes `~/.config/herdr/snapshots/<ts>.json` — every pane's
+session id, no output — so a stale or corrupt `session.json` is recoverable.
+`devrebuild` takes one automatically; run it by hand before anything risky.

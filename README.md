@@ -6,7 +6,8 @@ The same tracked terminal configuration supports four environments:
 - **macOS host** (Apple Silicon) — terminal-first, orchestration-oriented dev
   machine. See [macOS Setup](#-macos-setup).
 - **Ubuntu 24.04 dev containers** — the original target. See [Dev Container Usage](#-dev-container-usage).
-- **Omarchy Linux** — the same Herdr keymap, plus an opt-in keyd Caps Lock remap.
+- **Omarchy Linux** — managed shell tooling without replacing Omarchy's desktop
+  configuration. See [Omarchy Setup](#-omarchy-linux-setup).
 - **Windows 11** — native Herdr setup through PowerShell.
 
 Herdr setup and its Omarchy-compatible keymap are documented in
@@ -65,9 +66,36 @@ Handy aliases (see [`aliases.zsh`](.dotfiles/zsh/.config/zsh/aliases.zsh) /
 | `clone` / `cdc` | clone into / cd to `~/Code/<org>/<repo>` |
 | `roe` | `code roe-local-dev.code-workspace` (never bare `code .`) |
 
+## 🟢 Omarchy Linux Setup
+
+Run the dedicated host setup from this checkout:
+
+```bash
+cd ~/Code/dr3dr3/dotfiles
+bash scripts/setup-omarchy.sh
+```
+
+The script installs Stow, Fish, Nushell, Starship, and Atuin through
+`omarchy pkg add`; links Herdr through its dedicated setup; installs the
+diagram tool; and stows only the portable `bin`, `fish`, `nushell`, and
+`starship` packages. It does not change the login shell or replace Omarchy's
+Hyprland, shell, terminal, or Mise configuration. Open a new terminal and run
+`fish` to use Fish.
+
+Conflicting files are moved under
+`~/.config/dotfiles-backups/omarchy-<timestamp>/` before links are created.
+The setup deliberately uses per-file links and never `stow --adopt`, so
+runtime files written under `~/.config` cannot silently enter this checkout.
+
+The top-level `install.sh` is the legacy Ubuntu installer and refuses to run
+on Omarchy. The Omarchy setup is safe to run repeatedly.
+
 ## 🐳 Dev Container Usage
 
-This repo is designed to be cloned into a project's devcontainer setup. The `install.sh` script sets up the shell environment inside the container — it only modifies the container's home directory (`~`) and does not touch the host workspace.
+This repo is designed to be cloned into a project's devcontainer setup. The
+`scripts/setup-devcontainer.sh` script sets up the shell environment inside
+the container — it only modifies the container's home directory (`~`) and
+does not touch the host workspace.
 
 ### Setup in the Rock of Eye devcontainer
 
@@ -77,8 +105,11 @@ clone and runs `bash /workspace/dotfiles/scripts/setup-devcontainer.sh`.
 Future container creation runs the same hook automatically when the clone exists.
 
 The personal hook installs Fish, Zsh, Nushell, Vim and Starship when missing, applies
-managed Fish/Zsh/Nushell/Vim/Starship configuration, and sets up Herdr and Atuin.
+managed Fish/Zsh/Nushell/Vim/Starship configuration, sets up Herdr and Atuin, and
+installs pinned lazygit, Glow, fd, eza, and zoxide binaries under `~/.local/bin`.
 Bash retains its existing initialization and gains Starship and Atuin.
+Fish uses Atuin on Ctrl-R. For Claude/Codex capture and a hands-on walkthrough, see
+[the dotai Atuin guide](https://github.com/dr3dr3/dotai/blob/main/docs/atuin-history.md).
 Open a new terminal afterward; run `fish` or `zsh` to choose that shell.
 Herdr uses Fish for new panes; the account default shell is unchanged. Nushell uses the pinned official 0.115.1 Linux release for ARM64 or x86_64.
 Host-only tooling is not installed by this hook. Prompt icons use the font configured in your host terminal.

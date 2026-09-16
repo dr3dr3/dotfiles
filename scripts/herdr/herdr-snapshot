@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# herdr-snapshot — save the live Herdr session snapshot onto the persisted volume.
+#
+# Herdr's own session.json already restores workspaces/tabs/panes/cwd/layout and
+# resumes agents on the first attach after a rebuild. This is the independent
+# copy: every Claude/Codex session id for every pane, in a file under
+# ~/.config/herdr/snapshots/ (the ~/.config volume survives rebuilds), so a
+# missed pane or a corrupt session.json can be replayed with `herdr-replay`.
+#
+# Contains layout metadata and session ids — no pane output. Mode 0600.
+# Keeps the newest KEEP (default 20).
+set -euo pipefail
+DIR="${XDG_CONFIG_HOME:-$HOME/.config}/herdr/snapshots"
+KEEP="${HERDR_SNAPSHOT_KEEP:-20}"
+command -v herdr >/dev/null || { echo "herdr-snapshot: herdr not on PATH" >&2; exit 1; }
+command -v jq >/dev/null || { echo "herdr-snapshot: jq required" >&2; exit 1; }
+install -d -m 0700 "$DIR"
+f="$DIR/$(date -u +%Y%m%dT%H%M%SZ).json"
+herdr api snapshot >"$f.tmp" || { rm -f "$f.tmp"; echo "herdr-snapshot: herdr api snapshot failed (server not running?)" >&2; exit 1; }
+jq -e '.result.snapshot.workspaces | length > 0' "$f.tmp" >/dev/null || { rm -f "$f.tmp"; echo "herdr-snapshot: snapshot has no workspaces — refusing to save an empty one" >&2; exit 1; }
+chmod 600 "$f.tmp" && mv "$f.tmp" "$f"
+jq -r --arg f "$f" '.result.snapshot | "\($f): \(.workspaces|length) workspaces, \(.tabs|length) tabs, \(.panes|length) panes, \([.agents[]|select(.agent_session.value!=null)]|length) agent sessions"' "$f"
+ls -1t "$DIR"/*.json 2>/dev/null | tail -n +$((KEEP+1)) | xargs -r rm -f

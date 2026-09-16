@@ -1,5 +1,17 @@
 #!/bin/bash
 
+set -euo pipefail
+
+if [[ -r /etc/os-release ]]; then
+  # shellcheck disable=SC1091
+  source /etc/os-release
+  if [[ "${ID:-}" == omarchy ]]; then
+    echo "This legacy installer targets Ubuntu/dev containers." >&2
+    echo "Run: bash scripts/setup-omarchy.sh" >&2
+    exit 1
+  fi
+fi
+
 # Update package lists
 sudo apt-get update
 
