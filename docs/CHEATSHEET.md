@@ -119,7 +119,7 @@ These tools belong in a plain host tab and are declared in the root Brewfile:
 | Host authentication | `op whoami`, `ssh-add -l`, `gh auth status` | 1Password CLI session, SSH agent identities, and GitHub CLI authentication; 1Password may ask to unlock/approve. |
 | Dotfiles maintenance | `cd ~/Code/dr3dr3/dotfiles`, then `./doctor-mac.sh` or `upd` | Read-only host audit or host updates. |
 | Dotfiles Git | `cd ~/Code/dr3dr3/dotfiles`, then `lazygit` (`lg`) | Host Git TUI only for this repo; use the container's Git tooling for project repos. |
-| Voice dictation | hold the MacBook `Fn/Globe` key, speak, release | Handy, host-native. Transcribes on-device and pastes into the focused pane — Ghostty/Herdr included. Needs Microphone + Accessibility in Privacy & Security. |
+| Voice dictation | Globe as before, or hold the Ulanzi Vibe Key Voice Input key | Handy, host-native. Vibe Key emits `Ctrl+Option+Command+R`, which Karabiner routes to the preserved Globe binding. |
 
 Logi Options+ owns the MX Vertical and MX Keys mappings on macOS. The intended
 layout is: MX Vertical back/forward buttons switch Ghostty panes (`Cmd+[` /
@@ -234,14 +234,17 @@ vr <cmd>                         # = varlock run -- <cmd>  (inject resolved env)
 
 ---
 
-## 🤖 Local LLM — Ollama (fallback / transient only)
+## 🤖 Local LLM — Ollama
+
+> Full runbook — model choice and benchmarks, Pi wiring, overnight batches,
+> troubleshooting: **[LOCAL-AI.md](LOCAL-AI.md)**.
 
 ```bash
-olu qwen3.8:27b-mlx       # pull a model  (prefer -mlx tags — see below)
-olr qwen3.8:27b-mlx       # run it
+olu $PI_LOCAL_MODEL       # pull a model  (see LOCAL-AI.md for which)
+olr $PI_LOCAL_MODEL       # run it
 olp                       # what's resident in unified memory RIGHT NOW
-o-stop qwen3.8:27b-mlx    # UNLOAD from memory (model stays on disk)
-olrm qwen3.8:27b-mlx      # DELETE from disk — not what you want to free RAM
+o-stop $PI_LOCAL_MODEL    # UNLOAD from memory (model stays on disk)
+olrm <model>              # DELETE from disk — not what you want to free RAM
 ```
 
 > ⚠️ **`olrm` is `ollama rm` — it deletes the model**, an 18GB re-download. This
@@ -254,39 +257,28 @@ olrm qwen3.8:27b-mlx      # DELETE from disk — not what you want to free RAM
 > **`o-stop` the model when you're done** so it doesn't starve the stack. Local
 > LLM memory is not free.
 
-**Which tag — measured, not assumed.** Ollama runs on Apple's MLX on Apple
-Silicon (0.19+), so `-mlx` tags get the MLX engine and plain GGUF tags fall back
-to Metal. That makes `-mlx` the obvious pick, and on this host it is the wrong
-one. Benchmarked 2026-09-14, 12.6k-token prompt:
-
-| Tag | Prefill | Generation | Size |
-| --- | --- | --- | --- |
-| **`qwen3.8:27b-mtp-q4_K_M`** | **314 tok/s** | 26.2 tok/s | 17GB |
-| `qwen3.8:27b-mlx` | 129 tok/s | 24.5 tok/s | 18GB |
-
-The `mtp` tags carry built-in multi-token prediction (self-speculative decoding),
-and that beats the MLX engine by **2.4x on prefill** — the number you actually
-feel in an agentic loop. End to end, one `pi -p` turn: **134s vs 277s**. The
-trade is quantization quality: `nvfp4` (mlx) is a better 4-bit format than
-`Q4_K_M`, so keep `-mlx` if you find MTP's output worse on your work.
+**Which model, and the numbers behind it:** see
+**[LOCAL-AI.md › Which model](LOCAL-AI.md#which-model-and-why)**. Short version —
+`$PI_LOCAL_MODEL` is `qwen3-coder:30b-a3b-q4_K_M`, Mixture-of-Experts (30B total,
+~3.3B active), measured at **766 tok/s prefill** against 314 for
+`qwen3.8:27b-mtp-q4_K_M`. Prefill is what you wait through in an agentic loop.
+Keep `qwen3.8:27b-mtp-q4_K_M` for anything needing thinking or vision — the coder
+model has neither.
 
 **The second call is ~0s.** Ollama caches the prompt prefix and Pi resends the
-same system prompt and tools every turn, so the prefill is paid once per session,
-not per turn. `--thinking off` (→ `reasoning_effort: none`, verified to produce
-zero reasoning tokens) is the other big lever for tool-heavy turns.
+same system prompt and tools every turn, so prefill is paid once per session, not
+per turn. `--thinking off` (→ `reasoning_effort: none`) is the other big lever.
 
-**Containers reach it without any extra binding.** OrbStack forwards
-`host.docker.internal` to the host loopback, so the default 127.0.0.1 bind is
-enough — and keeps a no-auth inference server off your LAN. `o-expose` is the
-escape hatch for Docker Desktop or another machine; `o-up` rebinds to loopback.
+**Containers reach it on the default loopback bind** — OrbStack forwards
+`host.docker.internal` there, so no `0.0.0.0` is needed and your LAN stays out.
+`o-expose` is the escape hatch for Docker Desktop or another machine.
 
 ---
 
 ## 🌙 Overnight agent runs — `pi-batch`
 
-The shape: Claude or Codex plans a batch and writes a brief, Pi executes it
-overnight on the local model, and the morning question is only *is this worth
-keeping*.
+Claude or Codex plans a batch and writes a brief; Pi executes it overnight on the
+local model; you review a branch in the morning.
 
 ```bash
 pi-batch --brief work.md --test "make test"     # run it
@@ -297,35 +289,17 @@ pi-batch-review --failed                        # only what needs attention
 pi-batch-review --prune                         # drop records past 30 days
 ```
 
-**Guardrails, and why each is there.** Every one of these was verified to fire:
+It holds the Mac awake (this host sleeps a minute after you walk away), works on
+a throwaway branch it cannot push, refuses a dirty tree, and gates on your tests.
+"Outstanding" means the branch still exists — deleting or merging it *is* the
+review.
 
-| Guard | Because |
-| --- | --- |
-| `caffeinate -is` wraps the run | this Mac is `sleep 1` on AC — it suspends a minute after you walk away and takes OrbStack's VM with it |
-| isolated `pi-batch/<stamp>` branch | your branch never receives an unattended commit |
-| a pre-push hook that refuses | belt and braces; `git push` exits 1 |
-| refuses to start on a dirty tree | agent commits on top of your uncommitted work cannot be separated afterwards |
-| tests before **and** after | the expensive failure is not an agent that does nothing, it is one that writes plausible wrong code and commits it |
+⚠️ **A passing test gate is not sufficient.** A real run produced code that passed
+its own suite while missing a stated requirement, and never committed. Read the
+diff.
 
-Without `--test` there is no gate, and the run says so rather than implying
-safety. The agent is not sandboxed beyond this — Pi has no permission system,
-the container is the sandbox — so scope the brief to the work you want done.
-
-**"Outstanding" means the branch still exists.** There is no reviewed flag: the
-branch *is* what you must act on, so merging or deleting it is the review, and a
-branch cannot drift out of sync the way a flag can. Parking something? Rename it
-off the prefix (`git branch -m pi-batch/x parked/x`). `doctor-mac.sh` warns while
-runs are unreviewed, and `--prune` refuses to delete a record whose branch
-survives.
-
-Records and logs live in `~/.local/state/pi-batch` — host-only on purpose.
-`~/host-share` is mounted *into* the containers, and an agent able to read its
-own past runs turns one night's mistakes into the next night's context.
-
-**Research is the weak leg.** Pi's built-in tools are read/bash/edit/write — no
-web search, no fetch. Have Claude/Codex do the research at planning time and bake
-the findings into the brief; the local model then executes against a closed
-world, which is what it is good at.
+Full runbook, guardrail rationale, and troubleshooting:
+**[LOCAL-AI.md](LOCAL-AI.md)**.
 
 ---
 
@@ -393,7 +367,7 @@ $EDITOR ../config/handy/vocabulary.txt && ./scripts/setup-handy.sh   # add terms
 
 | | |
 | --- | --- |
-| Hold to talk | MacBook `Fn/Globe` (no clash with the Herdr prefix, `Ctrl+Alt+Space`) |
+| Trigger | Existing MacBook `Fn/Globe`, plus Ulanzi Vibe Key Voice Input via `Ctrl+Option+Command+R` |
 | Cancel | `Escape` while recording |
 | Model | Whisper Medium — pick it in Handy ▸ Settings ▸ Models, it downloads ~1.5GB |
 | Config | merged into `~/Library/Application Support/com.pais.handy/`, **never stowed** |

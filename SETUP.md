@@ -8,6 +8,7 @@ Claude Code / Codex / herdr are installed as well, for the times there is no
 container to work in (this dotfiles repo, host triage, a quick one-off).
 
 - Daily commands once you're set up: **[docs/CHEATSHEET.md](docs/CHEATSHEET.md)**
+- Local model + overnight agent batches: **[docs/LOCAL-AI.md](docs/LOCAL-AI.md)**
 - What gets installed: **[Brewfile](Brewfile)** · **[bootstrap-mac.sh](bootstrap-mac.sh)**
 
 ---
@@ -201,9 +202,9 @@ brew services stop ollama      # fully free memory when done
   one puts a **no-auth inference server on your LAN**. If you ever switch to
   Docker Desktop (its sandbox blocks host-loopback access) or need another
   machine to reach it, `o-expose` does that deliberately and `o-up` undoes it.
-- **Use the `-mlx` tags.** Ollama runs on Apple's MLX on Apple Silicon (0.19+),
-  so `qwen3.8:27b-mlx` gets the accelerated path; plain GGUF tags fall back to
-  Metal.
+- **Which model:** `$PI_LOCAL_MODEL`, set in the shell configs. Do not assume the
+  `-mlx` tags are fastest — they were the slowest thing measured here. See
+  [docs/LOCAL-AI.md](docs/LOCAL-AI.md#which-model-and-why) for the numbers.
 - **Memory budget:** a 27B model is ~19GB resident in unified memory and competes
   with the ~16GB dev stack. Models auto-unload after ~5 min idle
   (`OLLAMA_KEEP_ALIVE`); `o-stop <model>` frees it immediately, and
