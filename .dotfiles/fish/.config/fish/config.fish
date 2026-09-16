@@ -114,6 +114,22 @@ function cca --description 'Claude Code (corporate-API) in the container'; _dcx 
 function cc  --description 'Claude Code (defaults to personal)'; ccp $argv; end
 function cx  --description 'Codex in the container'; _dcx codex $argv; end
 function pi  --description 'Pi Harness in the container'; _dcx pi $argv; end
+# `pi --list-models` shows local Ollama models and hosted gateway models in ONE
+# flat list with nothing marking which is which. `pil` is the local path your
+# fingers learn, so a billed gateway model is never one tab-complete away.
+# --thinking off maps to reasoning_effort=none (verified: zero reasoning tokens).
+# Unattended batches use `pi-batch` (.dotfiles/bin) — it needs caffeinate, an
+# isolated branch, a refuse-to-push hook and a test gate, not a one-liner.
+function pil --description 'Pi on the LOCAL model (host Ollama)'
+    _dcx pi --provider ollama --model "$PI_LOCAL_MODEL" --thinking off $argv
+end
+function piw --description 'Preload the local model so the first turn is warm'
+    printf 'warming %s… ' "$PI_LOCAL_MODEL"
+    and curl -fsS http://127.0.0.1:11434/api/generate \
+        -d "{\"model\":\"$PI_LOCAL_MODEL\",\"prompt\":\"hi\",\"stream\":false}" >/dev/null
+    and echo "resident (olp to confirm)"
+    or echo "FAILED — is ollama up?"
+end
 
 # ── Ollama (host-native; fallback only) ──────────────────────────────────────
 abbr -a -- oll 'ollama list'
@@ -136,6 +152,10 @@ abbr -a -- o-up 'launchctl unsetenv OLLAMA_HOST; brew services restart ollama'
 abbr -a -- o-down 'brew services stop ollama'
 abbr -a -- o-stop 'ollama stop'
 abbr -a -- o-expose 'launchctl setenv OLLAMA_HOST 0.0.0.0:11434; and brew services restart ollama'
+# Overnight: keep the model resident between agent turns (the 5m default makes a
+# slow test run cost a full cold reload). o-day gives the memory back.
+abbr -a -- o-night 'launchctl setenv OLLAMA_KEEP_ALIVE 12h; and brew services restart ollama'
+abbr -a -- o-day 'launchctl unsetenv OLLAMA_KEEP_ALIVE; brew services restart ollama'
 
 # ── JIT editor — always the multi-root workspace, never `code .` ─────────────
 abbr -a -- roe 'code roe-local-dev.code-workspace'
@@ -170,6 +190,21 @@ end
 # Default Brewfile for every `brew bundle` subcommand, from any directory.
 # Lookup order: --file flag > this var > ./Brewfile (so a per-project Brewfile
 # elsewhere needs an explicit --file). The *-mac.sh scripts pass --file already.
+# ── Local model for the Pi harness ────────────────────────────────────────--
+# ONE source of truth for which Ollama model the local-agent wrappers use, so
+# changing it is a single edit rather than three that drift. Read by `pil` /
+# `piw` (agents.zsh) and by `pi-batch` (.dotfiles/bin).
+#
+# Why this tag: qwen3-coder is a Mixture-of-Experts model — 30B total but only
+# ~3.3B ACTIVE per token — so it is far quicker than a dense 27B at the prefill
+# that dominates an agentic tool loop, and it was RL-trained for agentic SWE.
+# q4_K_M (19GB) rather than q8_0 (32GB) is a memory decision, not a quality
+# preference: the dev stack alone holds ~19GB, so q8 plus the containers plus
+# macOS does not fit in 64GB without swapping. Revisit if you idle the stack.
+# It has tools + 256K context, but NO thinking and NO vision — for those, use
+# qwen3.8:27b-mtp-q4_K_M instead.
+set -gx PI_LOCAL_MODEL "qwen3-coder:30b-a3b-q4_K_M"
+
 set -gx HOMEBREW_BUNDLE_FILE "$HOME/Code/dr3dr3/dotfiles/Brewfile"
 abbr -a -- upd '~/Code/dr3dr3/dotfiles/update-mac.sh'
 # Scratch-file snapshot only — never dump over the tracked Brewfile (--force

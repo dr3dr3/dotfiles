@@ -30,6 +30,21 @@
 # access), a second machine, a VM? `o-expose` in aliases.zsh does it explicitly.
 # See SETUP.md ("Local LLM — Ollama").
 
+# --- Local model for the Pi harness ------------------------------------------
+# ONE source of truth for which Ollama model the local-agent wrappers use, so
+# changing it is a single edit rather than three that drift. Read by `pil` /
+# `piw` (agents.zsh) and by `pi-batch` (.dotfiles/bin).
+#
+# Why this tag: qwen3-coder is a Mixture-of-Experts model — 30B total but only
+# ~3.3B ACTIVE per token — so it is far quicker than a dense 27B at the prefill
+# that dominates an agentic tool loop, and it was RL-trained for agentic SWE.
+# q4_K_M (19GB) rather than q8_0 (32GB) is a memory decision, not a quality
+# preference: the dev stack alone holds ~19GB, so q8 plus the containers plus
+# macOS does not fit in 64GB without swapping. Revisit if you idle the stack.
+# It has tools + 256K context, but NO thinking and NO vision — for those, use
+# qwen3.8:27b-mtp-q4_K_M instead.
+export PI_LOCAL_MODEL="qwen3-coder:30b-a3b-q4_K_M"
+
 # --- Homebrew Bundle ---------------------------------------------------------
 # Make the dotfiles Brewfile the default target for every `brew bundle`
 # subcommand, from any directory — so `brew bundle`, `brew bundle check` and

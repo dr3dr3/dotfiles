@@ -66,6 +66,11 @@ alias o-up='launchctl unsetenv OLLAMA_HOST; brew services restart ollama'
 alias o-down='brew services stop ollama'
 alias o-stop='ollama stop'  # unload from memory, keep serving: o-stop <model>
 alias o-expose='launchctl setenv OLLAMA_HOST 0.0.0.0:11434 && brew services restart ollama'
+# Overnight: keep the model resident between agent turns. The 5m default means a
+# slow test run between turns costs a full cold reload every time. o-day restores
+# it so an idle host gives the memory back. (pi-batch does this for itself.)
+alias o-night='launchctl setenv OLLAMA_KEEP_ALIVE 12h && brew services restart ollama'
+alias o-day='launchctl unsetenv OLLAMA_KEEP_ALIVE; brew services restart ollama'
 
 # --- git (carried over from the fish config, zsh-flavoured) ------------------
 alias ga='git add .'
