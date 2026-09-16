@@ -6,12 +6,13 @@ onboarding = false
 # Omarchy reference: https://omarchy.org/manual/hotkeys/#tmux
 # Herdr reference:   https://herdr.dev/docs/configuration/
 
-# Follow appearance changes reported by the outer terminal.
+# Follow the host terminal's ANSI palette rather than pinning a Herdr theme.
+# Omarchy themes the terminal from its colors.toml, so Herdr tracks
+# `omarchy theme set` automatically (Matte Black today) instead of always
+# showing Catppuccin. On macOS Ghostty carries Catppuccin Latte/Mocha per
+# appearance (ghostty/config), so light/dark switching still comes through.
 [theme]
-name = "catppuccin"
-auto_switch = true
-light_name = "catppuccin-latte"
-dark_name = "catppuccin"
+name = "terminal"
 
 [session]
 resume_agents_on_restore = true
