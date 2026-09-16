@@ -1,0 +1,17 @@
+# herdr-after-restore — commands to relaunch in specific panes after a
+# devcontainer rebuild (Herdr restores layout and resumes agents natively, but
+# not running commands). Match by workspace label + tab label; `pane` is the
+# 1-based index in reading order (top-left first), default 1.
+#
+# Fill in the panes that hold long-running services. Examples:
+#
+# [[pane]]
+# workspace = "daily"
+# tab       = "ports"
+# command   = "make port-forward"
+#
+# [[pane]]
+# workspace = "tooling"
+# tab       = "staging-db"
+# pane      = 2
+# command   = "make staging-db"

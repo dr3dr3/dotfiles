@@ -1,0 +1,83 @@
+#!/usr/bin/env python3
+"""herdr-after-restore — relaunch service commands in their panes after a rebuild.
+
+Herdr's native restore brings back layout and resumes agents, but "does not
+preserve running shells, servers, tests, or arbitrary processes" — a pane that
+ran `make port-forward` comes back as an empty shell in the right directory.
+This replays the commands you declare in ~/.config/herdr/launch.toml:
+
+    [[pane]]
+    workspace = "daily"        # workspace label
+    tab       = "ports"        # tab label
+    pane      = 1              # 1-based pane index in reading order (default 1)
+    command   = "make port-forward"
+
+Runs `herdr pane run <id> <command>` for each entry whose pane is currently at
+a shell (agent panes are skipped — `herdr-replay` owns those). Idempotent
+enough: it never runs into a pane whose foreground process is not a shell.
+
+    herdr-after-restore            # apply
+    herdr-after-restore --dry-run
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import subprocess
+import sys
+import tomllib
+from pathlib import Path
+
+CFG = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "herdr" / "launch.toml"
+
+
+def herdr(*args: str) -> dict:
+    out = subprocess.run(["herdr", *args], capture_output=True, text=True, check=False)
+    data = json.loads(out.stdout or "{}")
+    if "error" in data:
+        raise SystemExit(f"herdr {' '.join(args)}: {data['error'].get('message')}")
+    return data.get("result", data)
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--config", type=Path, default=CFG)
+    a = ap.parse_args()
+    if not a.config.exists():
+        print(f"no {a.config} — nothing declared; see herdr-after-restore --help for the format")
+        return 0
+    entries = tomllib.loads(a.config.read_text()).get("pane", [])
+    snap = herdr("api", "snapshot")["snapshot"]
+    ws_by_label = {w["label"]: w["workspace_id"] for w in snap["workspaces"]}
+    agents = {p["pane_id"] for p in snap.get("agents", [])}
+    rc = 0
+    for e in entries:
+        ws_id = ws_by_label.get(e["workspace"])
+        tab = next((t for t in snap["tabs"] if t["workspace_id"] == ws_id and t["label"] == e["tab"]), None) if ws_id else None
+        if not tab:
+            print(f"skip  {e['workspace']}/{e['tab']}: workspace or tab not present live")
+            rc = 1
+            continue
+        layout = next((l for l in snap.get("layouts", []) if l["tab_id"] == tab["tab_id"]), None)
+        panes = sorted(layout["panes"], key=lambda p: (p["rect"]["y"], p["rect"]["x"])) if layout else []
+        idx = int(e.get("pane", 1)) - 1
+        if idx >= len(panes):
+            print(f"skip  {e['workspace']}/{e['tab']}: pane {idx+1} does not exist ({len(panes)} panes)")
+            rc = 1
+            continue
+        pid = panes[idx]["pane_id"]
+        if pid in agents:
+            print(f"skip  {e['workspace']}/{e['tab']} pane {idx+1}: an agent is running there")
+            continue
+        if a.dry_run:
+            print(f"would run in {pid} ({e['workspace']}/{e['tab']} pane {idx+1}): {e['command']}")
+            continue
+        herdr("pane", "run", pid, e["command"])
+        print(f"ran   in {pid} ({e['workspace']}/{e['tab']} pane {idx+1}): {e['command']}")
+    return rc
+
+
+if __name__ == "__main__":
+    sys.exit(main())

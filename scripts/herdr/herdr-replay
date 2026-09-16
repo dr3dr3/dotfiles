@@ -1,0 +1,237 @@
+#!/usr/bin/env python3
+"""herdr-replay — rebuild what Herdr's native restore did not, from a snapshot.
+
+After a devcontainer rebuild, `devherd` attaches and Herdr restores
+workspaces/tabs/panes/cwd/layout from its own session.json and resumes agent
+panes that reported a session id. This tool covers the rest:
+
+  * a workspace or tab missing from the live session (native restore skipped
+    it, or session.json was stale) is recreated with its panes and splits;
+  * an agent pane we (re)created is resumed from its recorded session id —
+    `claude --resume <id>` / `codex resume <id>`;
+  * Firstmate captain and Treehouse worker panes are NEVER resumed here. Their
+    sandbox comes from the `fm` launcher's environment, which a resume does not
+    carry, so resuming them would run them unsandboxed. They are listed with
+    the command to relaunch them properly.
+
+Dry-run by default: prints the plan. `--apply` executes it. Idempotent:
+matches live workspaces and tabs by label and never duplicates one.
+
+    herdr-replay                      # plan from the newest snapshot
+    herdr-replay --apply
+    herdr-replay --snapshot <file> --workspace daily --apply
+
+Snapshots come from `herdr-snapshot` (~/.config/herdr/snapshots/*.json).
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+SNAP_DIR = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "herdr" / "snapshots"
+RESUME = {"claude": ["--resume"], "codex": ["resume"], "pi": ["--session"]}
+
+
+def herdr(*args: str) -> dict:
+    out = subprocess.run(["herdr", *args], capture_output=True, text=True, check=False)
+    try:
+        data = json.loads(out.stdout or "{}")
+    except json.JSONDecodeError:
+        raise SystemExit(f"herdr {' '.join(args)}: non-JSON output: {out.stdout[:200]} {out.stderr[:200]}")
+    if "error" in data:
+        raise SystemExit(f"herdr {' '.join(args)}: {data['error'].get('message', data['error'])}")
+    return data.get("result", data)
+
+
+def load_snapshot(path: Path) -> dict:
+    data = json.loads(path.read_text())
+    return data["result"]["snapshot"] if "result" in data else data
+
+
+def latest_snapshot() -> Path:
+    files = sorted(SNAP_DIR.glob("*.json"))
+    if not files:
+        raise SystemExit(f"no snapshots in {SNAP_DIR} — run herdr-snapshot first")
+    return files[-1]
+
+
+def is_firstmate_pane(cwd: str) -> bool:
+    cwd = (cwd or "").rstrip("/") + "/"
+    return cwd.startswith("/workspace/firstmate/") or "/.treehouse/" in cwd
+
+
+def rect(p: dict) -> tuple[int, int, int, int]:
+    r = p["rect"]
+    return r["x"], r["y"], r["width"], r["height"]
+
+
+def plan_tab_splits(layout_panes: list[dict]) -> list[tuple[str, str, str, float]]:
+    """Return (new_pane_id, split_from_pane_id, direction, ratio) for every pane after the first.
+
+    Layouts are trees of binary splits; rebuilding from rects is enough for
+    the shapes we have (one split per tab today) and degrades to a best-effort
+    ordering for deeper ones. Panes are created in reading order (y, then x).
+    """
+    order = sorted(layout_panes, key=lambda p: (rect(p)[1], rect(p)[0]))
+    created: list[dict] = [order[0]]
+    steps = []
+    for p in order[1:]:
+        x, y, w, h = rect(p)
+        origin = None
+        for q in created:
+            qx, qy, qw, qh = rect(q)
+            if qx + qw == x and qy == y:  # p sits to the right of q
+                origin, direction, ratio = q, "right", qw / (qw + w)
+                break
+            if qy + qh == y and qx == x:  # p sits below q
+                origin, direction, ratio = q, "down", qh / (qh + h)
+                break
+        if origin is None:  # fall back: split the last created pane to the right
+            origin, direction, ratio = created[-1], "right", 0.5
+        steps.append((p["pane_id"], origin["pane_id"], direction, round(ratio, 3)))
+        created.append(p)
+    return steps
+
+
+def build_plan(snap: dict, live: dict, only_workspace: str | None) -> list[dict]:
+    panes_by_id = {p["pane_id"]: p for p in snap["panes"]}
+    agents_by_pane = {a["pane_id"]: a for a in snap.get("agents", []) if a.get("agent_session", {}).get("value")}
+    layouts_by_tab = {l["tab_id"]: l for l in snap.get("layouts", [])}
+    live_ws_by_label = {w["label"]: w for w in live.get("workspaces", [])}
+    live_tabs = live.get("tabs", [])
+
+    plan: list[dict] = []
+    for ws in sorted(snap["workspaces"], key=lambda w: w.get("number", 0)):
+        if only_workspace and ws["label"] != only_workspace:
+            continue
+        ws_tabs = sorted((t for t in snap["tabs"] if t["workspace_id"] == ws["workspace_id"]), key=lambda t: t.get("number", 0))
+        live_ws = live_ws_by_label.get(ws["label"])
+        first_cwd = next((panes_by_id[p["pane_id"]]["cwd"] for t in ws_tabs for p in layouts_by_tab.get(t["tab_id"], {}).get("panes", []) if p["pane_id"] in panes_by_id), "/workspace")
+        ws_step = None
+        if live_ws is None:
+            ws_step = {"op": "workspace", "label": ws["label"], "cwd": first_cwd}
+            plan.append(ws_step)
+        for i, tab in enumerate(ws_tabs):
+            live_tab = None
+            if live_ws is not None:
+                live_tab = next((t for t in live_tabs if t["workspace_id"] == live_ws["workspace_id"] and t["label"] == tab["label"]), None)
+            if live_tab is not None:
+                plan.append({"op": "skip-tab", "workspace": ws["label"], "label": tab["label"], "reason": "exists live"})
+                continue
+            layout = layouts_by_tab.get(tab["tab_id"], {"panes": [{"pane_id": pid, "rect": {"x": 0, "y": 0, "width": 1, "height": 1}} for pid in [p["pane_id"] for p in snap["panes"] if p["tab_id"] == tab["tab_id"]]]})
+            lpanes = [p for p in layout["panes"] if p["pane_id"] in panes_by_id]
+            if not lpanes:
+                continue
+            order = sorted(lpanes, key=lambda p: (rect(p)[1], rect(p)[0]))
+            root = order[0]["pane_id"]
+            # the first tab of a NEW workspace is the root tab created with the workspace
+            uses_ws_root = ws_step is not None and i == 0
+            plan.append({"op": "tab", "workspace": ws["label"], "label": tab["label"], "cwd": panes_by_id[root]["cwd"], "root_pane": root, "uses_ws_root": uses_ws_root})
+            for new_id, from_id, direction, ratio in plan_tab_splits(lpanes):
+                plan.append({"op": "split", "workspace": ws["label"], "tab": tab["label"], "pane": new_id, "from": from_id, "direction": direction, "ratio": ratio, "cwd": panes_by_id[new_id]["cwd"]})
+            for lp in order:
+                a = agents_by_pane.get(lp["pane_id"])
+                if not a:
+                    continue
+                cwd = panes_by_id[lp["pane_id"]]["cwd"]
+                kind = a["agent"]
+                sid = a["agent_session"]["value"]
+                if is_firstmate_pane(cwd):
+                    plan.append({"op": "skip-agent", "pane": lp["pane_id"], "kind": kind, "cwd": cwd, "reason": "Firstmate captain/worker — relaunch via `fm` so the sandbox applies; do not resume by id"})
+                elif kind not in RESUME:
+                    plan.append({"op": "skip-agent", "pane": lp["pane_id"], "kind": kind, "cwd": cwd, "reason": "no known resume form"})
+                else:
+                    plan.append({"op": "agent", "pane": lp["pane_id"], "kind": kind, "session": sid, "name": tab["label"], "cwd": cwd})
+    return plan
+
+
+def describe(step: dict) -> str:
+    op = step["op"]
+    if op == "workspace":
+        return f"workspace  create '{step['label']}' cwd={step['cwd']}"
+    if op == "tab":
+        return f"  tab      create '{step['label']}' in '{step['workspace']}' cwd={step['cwd']}" + ("  (workspace root tab)" if step["uses_ws_root"] else "")
+    if op == "split":
+        return f"    split  {step['direction']} {step['ratio']} from {step['from']} → {step['pane']} cwd={step['cwd']}"
+    if op == "agent":
+        return f"    agent  {step['kind']} resume {step['session'][:8]}… in pane {step['pane']}"
+    if op == "skip-tab":
+        return f"  tab      keep   '{step['label']}' in '{step['workspace']}' ({step['reason']})"
+    if op == "skip-agent":
+        return f"    SKIP   {step['kind']} pane {step['pane']} cwd={step['cwd']} — {step['reason']}"
+    return str(step)
+
+
+def apply(plan: list[dict]) -> None:
+    ws_ids: dict[str, str] = {w["label"]: w["workspace_id"] for w in herdr("api", "snapshot")["snapshot"]["workspaces"]}
+    pane_map: dict[str, str] = {}  # snapshot pane id → live pane id
+    pending_root: str | None = None  # live root pane of a just-created workspace
+    for step in plan:
+        op = step["op"]
+        if op == "workspace":
+            r = herdr("workspace", "create", "--label", step["label"], "--cwd", step["cwd"], "--no-focus")
+            ws_ids[step["label"]] = r["workspace"]["workspace_id"]
+            pending_root = r["root_pane"]["pane_id"]
+            print("created", describe(step))
+        elif op == "tab":
+            if step["uses_ws_root"] and pending_root:
+                pane_map[step["root_pane"]] = pending_root
+                pending_root = None
+                r = herdr("tab", "list", "--workspace", ws_ids[step["workspace"]])
+                # rename the root tab to the snapshot label
+                tabs = r.get("tabs", [])
+                if tabs:
+                    herdr("tab", "rename", tabs[0]["tab_id"], step["label"])
+            else:
+                r = herdr("tab", "create", "--workspace", ws_ids[step["workspace"]], "--label", step["label"], "--cwd", step["cwd"], "--no-focus")
+                pane_map[step["root_pane"]] = r["root_pane"]["pane_id"]
+            print("created", describe(step))
+        elif op == "split":
+            src = pane_map.get(step["from"])
+            if not src:
+                print("skip  ", describe(step), "(source pane unknown)")
+                continue
+            r = herdr("pane", "split", "--pane", src, "--direction", step["direction"], "--ratio", str(step["ratio"]), "--cwd", step["cwd"], "--no-focus")
+            pane_map[step["pane"]] = r["pane"]["pane_id"]
+            print("created", describe(step))
+        elif op == "agent":
+            live_pane = pane_map.get(step["pane"])
+            if not live_pane:
+                print("skip  ", describe(step), "(pane not created by this run — native restore owns it)")
+                continue
+            args = ["agent", "start", step["name"], "--kind", step["kind"], "--pane", live_pane, "--", *RESUME[step["kind"]], step["session"]]
+            out = subprocess.run(["herdr", *args], capture_output=True, text=True, check=False)
+            print(("resumed" if out.returncode == 0 else "FAILED "), describe(step), "" if out.returncode == 0 else (out.stderr or out.stdout)[:160].strip())
+        else:
+            print("      ", describe(step))
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--snapshot", type=Path, help="snapshot file (default: newest in ~/.config/herdr/snapshots)")
+    ap.add_argument("--workspace", help="only this workspace label")
+    ap.add_argument("--apply", action="store_true", help="execute the plan (default: print it)")
+    ap.add_argument("--live", type=Path, help=argparse.SUPPRESS)  # tests: a file instead of the live server
+    a = ap.parse_args()
+
+    snap_path = a.snapshot or latest_snapshot()
+    snap = load_snapshot(snap_path)
+    live = load_snapshot(a.live) if a.live else herdr("api", "snapshot")["snapshot"]
+    plan = build_plan(snap, live, a.workspace)
+    print(f"snapshot: {snap_path}")
+    if not a.apply:
+        for step in plan:
+            print(describe(step))
+        n = sum(1 for s in plan if s["op"] in ("workspace", "tab", "split", "agent"))
+        print(f"\n{n} step(s) would run. Re-run with --apply to execute.")
+        return 0
+    apply(plan)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
