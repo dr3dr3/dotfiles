@@ -7,6 +7,7 @@ Ghostty pane where Herdr is waiting.
 
 - Installed by: `cask "handy"` in the [Brewfile](../Brewfile)
 - Configured by: [`scripts/setup-handy.sh`](../scripts/setup-handy.sh)
+- Vibe Key bridge: [`scripts/setup-handy-vibe-key.sh`](../scripts/setup-handy-vibe-key.sh)
 - Vocabulary source: [`config/handy/vocabulary.txt`](../config/handy/vocabulary.txt)
 - Settings live in `~/Library/Application Support/com.pais.handy/` — **not** in
   this repo, and not stowed. See [Why nothing here is stowed](#why-nothing-here-is-stowed).
@@ -72,13 +73,43 @@ not brew-owned and not in Git.
 > documents because it is what was asked for; the `.en` variant is a free
 > accuracy upgrade if you want it.
 
-### 3. Free Fn/Globe from macOS Dictation
+### 3. Globe and Ulanzi Vibe Key triggers
 
-macOS normally starts its own Dictation after two quick Fn/Globe presses. Since
-Handy owns that physical key for hold-to-talk, change the Apple Dictation
-shortcut in **System Settings ▸ Keyboard ▸ Dictation** so it is not double
-Fn/Globe. On this Mac it is disabled. `doctor-mac.sh` reports a failure if the
-system shortcut becomes active again.
+Handy's single Transcribe binding is **Ctrl+Option+Command+R**. The Ulanzi Vibe
+Key emits that ordinary shortcut directly. Karabiner translates the physical
+MacBook Fn/Globe key to the same chord, preserving the existing Globe workflow
+(including its double-tap behaviour).
+
+The direction matters: Ulanzi Studio posts synthetic macOS keyboard events,
+which are downstream of Karabiner's physical HID remapping. Consequently a
+Ulanzi-chord-to-Fn Karabiner rule cannot see the event; the Globe-to-chord rule
+can. Handy uses its `tauri` global-shortcut backend here because its lower-level
+`handy_keys` backend does not receive Ulanzi's synthetic chord.
+
+Apply the bridge after Ulanzi Studio has discovered the AU05 and loaded its
+default preset:
+
+```bash
+./scripts/setup-handy-vibe-key.sh --dry-run
+./scripts/setup-handy-vibe-key.sh
+```
+
+The script changes only the selected AU05 profile's `Voice Input` action at
+keypad slot `0_0`, installs the tracked Karabiner rule, and backs up both live
+JSON files before writing. It refuses unexpected devices, profiles, actions or
+hotkeys. Ulanzi Studio is relaunched to load the local profile.
+
+**Finish the device sync in Ulanzi Studio.** A JSON edit plus relaunch does not
+invoke Studio's profile-to-device update path. Select **Voice Input**, enter
+**Ctrl+Option+Command+T**, click away, then enter
+**Ctrl+Option+Command+R** and click away again. That committed editor change
+pushes the preset to the Vibe Key. After a successful sync, Ulanzi's documented
+offline mode can use the saved shortcut. `doctor-mac.sh` can verify the local
+profile but cannot read the shortcut stored on the device.
+
+macOS Dictation's own symbolic double-Fn hotkey remains disabled on this Mac so
+it does not compete with Handy. `doctor-mac.sh` checks that OS setting, Handy's
+binding, the Karabiner route, and the active Vibe Key profile.
 
 ---
 
@@ -91,13 +122,14 @@ change nothing writes nothing.
 | Setting | Value | Why |
 | --- | --- | --- |
 | `push_to_talk` | `true` | hold to talk, release to transcribe — no toggle state to lose track of |
-| `bindings.transcribe.current_binding` | `"fn"` | the MacBook's built-in Fn/Globe key is quick to reach with either hand |
+| `bindings.transcribe.current_binding` | `"control+option+command+r"` | receives Ulanzi directly and physical Globe through Karabiner |
 | `auto_submit` | **`false`** | **safety-critical, see below** |
 | `post_process_enabled` | `false` | the only feature that would send text off this Mac |
 | `selected_language` | `"en"` | `auto` runs language ID per utterance and mis-detects short technical phrases |
 | `translate_to_english` | `false` | nothing to translate when the source is English |
 | `paste_method` | `"ctrl_v"` | the clipboard path — and the one that restores your clipboard |
 | `clipboard_handling` | `"dont_modify"` | leave the restored clipboard alone |
+| `keyboard_implementation` | `"tauri"` | receives Ulanzi Studio's synthetic global shortcut |
 | `recording_retention_period` | `"preserve_limit"` | pairs with the limit below to delete recordings |
 | `history_limit` | `0` | keep no transcript history |
 | `selected_microphone` | `"MacBook Pro Microphone"` | pin the built-in mic |
@@ -262,7 +294,7 @@ trips, or when you just want to confirm what you're running.
   - Launch at login — **on**
   - Push to talk — **on**
 - **Bindings**
-  - Transcribe — press the MacBook's built-in **Fn/Globe** key
+  - Transcribe — **Ctrl+Option+Command+R**
 - **Audio**
   - Microphone — **MacBook Pro Microphone**
 - **Models**
@@ -297,17 +329,20 @@ last step of `upd`:
 
 ## Using it with Herdr
 
-The managed dictation hotkey is the MacBook's built-in **Fn/Globe** key. Hold it
-to talk and release it to transcribe. This binding does not collide with the
-Herdr prefix — Caps Lock / `Ctrl+Alt+Space`, see [HERDR.md](HERDR.md).
+The Vibe Key and the MacBook's built-in **Fn/Globe** key are two physical routes
+to Handy's managed `Ctrl+Option+Command+R` binding. Hold either to talk and
+release it to transcribe. That reserved chord does not
+collide with the Herdr prefix — Caps Lock / `Ctrl+Alt+Space`, see
+[HERDR.md](HERDR.md).
 
 This applies to the key on Apple's built-in keyboard. Logitech's Fn key is
 handled inside the keyboard and does not reach macOS as a normal bindable key,
 so use the MacBook key when the external keyboard is connected.
 
-Typical loop: focus the Ghostty pane running Herdr, hold Fn/Globe, speak the
-prompt, release. The text appears at the cursor. **Read it, then press Return
-yourself** — that pause is what Auto Submit would take away.
+Typical loop: focus the Ghostty pane running Herdr, then use Globe as before or
+hold the Vibe Key's Voice Input key, speak, and release. The text appears at the
+cursor. **Read it, then press Return yourself** — that pause is what Auto Submit
+would take away.
 
 Dictation quality drops on strings speech is bad at: long file paths, version
 numbers, flags. Expect to fix those by hand, and prefer dictating intent

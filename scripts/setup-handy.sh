@@ -4,8 +4,8 @@
 #
 # Handy (cask "handy") transcribes speech ON-DEVICE and pastes the result into
 # whatever window has focus — for this host, a Ghostty pane running Herdr. This
-# script pins the handful of settings that matter for that use, binds the
-# MacBook's built-in Fn/Globe key as hold-to-talk, and merges
+# script pins the handful of settings that matter for that use, binds a normal
+# modifier chord that both the Vibe Key and Globe bridge can emit, and merges
 # config/handy/vocabulary.txt into Handy's custom-words corrector.
 #
 # Idempotent: safe to re-run. A run that would change nothing writes nothing and
@@ -233,6 +233,12 @@ MANAGED = {
                                                      "ctrl_shift_v", "external_script"]),
     "clipboard_handling":         ("dont_modify",   ["dont_modify", "copy_to_clipboard"]),
 
+    # Ulanzi Studio posts its configured hotkey as a synthetic macOS shortcut.
+    # HandyKeys is a low-level listener and does not receive that event; the
+    # Tauri/Carbon global-shortcut backend does. Karabiner's Globe bridge still
+    # arrives as the same ordinary chord.
+    "keyboard_implementation":    ("tauri",          ["tauri", "handy_keys"]),
+
     # --- no retained recordings or transcript history ------------------------
     # See the header note: `preserve_limit` + limit 0 is what DELETES; the
     # variant literally named `never` means "never delete".
@@ -242,11 +248,12 @@ MANAGED = {
 }
 
 # Handy stores shortcuts under a nested bindings object. Keep this explicit so
-# changing the hotkey in the UI cannot silently restore the old shortcut. Handy
-# sees the Fn/Globe key on Apple's built-in keyboard as `fn`; third-party Fn keys
-# (including Logitech's) generally never reach macOS as a bindable key event.
+# changing the hotkey in the UI cannot silently restore the old shortcut. The
+# Ulanzi app posts shortcuts above Karabiner's HID layer, so Handy must listen
+# for this chord directly; the companion Karabiner rule maps physical Globe to
+# the same chord.
 MANAGED_BINDINGS = {
-    "transcribe": "fn",
+    "transcribe": "control+option+command+r",
 }
 
 if mic:

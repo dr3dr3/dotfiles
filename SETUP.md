@@ -70,6 +70,9 @@ exec zsh
    Grant **Microphone** *and* **Accessibility** in Privacy & Security (the second
    fails silently), and download **Whisper Medium** in Handy ▸ Settings ▸ Models.
    Leave **Auto Submit off** — it would press Return on every dictation.
+   For the Ulanzi Vibe Key, connect it in Ulanzi Studio, then run
+   `./scripts/setup-handy-vibe-key.sh`; this preserves the Globe shortcut.
+   Complete the in-app device-sync edit printed by the script.
    Full runbook: [docs/HANDY.md](docs/HANDY.md).
 5. *(optional)* Background Homebrew updates:
    ```bash

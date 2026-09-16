@@ -113,6 +113,7 @@ check_link ".local/bin/devrebuild"  "$STOW_DIR/bin"
 check_link ".local/bin/devherd"     "$STOW_DIR/bin"
 check_link ".config/herdr/config.toml" "$STOW_DIR/herdr"
 check_link ".config/karabiner/assets/complex_modifications/herdr-caps-lock.json" "$STOW_DIR/karabiner"
+check_link ".config/karabiner/assets/complex_modifications/handy-vibe-key.json" "$STOW_DIR/karabiner"
 check_link ".config/cliamp/radios.toml" "$STOW_DIR/cliamp"
 # macOS-only bridge — nushell does not read ~/.config/nushell here.
 check_link "Library/Application Support/nushell/config.nu" "$STOW_DIR/nushell"
@@ -284,6 +285,7 @@ WANT = {
     "translate_to_english": False,
     "paste_method": "ctrl_v",        # the path that restores the clipboard
     "clipboard_handling": "dont_modify",
+    "keyboard_implementation": "tauri",
     "recording_retention_period": "preserve_limit",
     "history_limit": 0,              # with the line above: prune every recording
 }
@@ -306,9 +308,9 @@ for key, want in WANT.items():
 
 binding = settings.get("bindings", {}).get("transcribe", {}).get(
     "current_binding", "<absent>")
-print("%s %s %s %s" % ("OK" if binding == "fn" else "DRIFT",
+print("%s %s %s %s" % ("OK" if binding == "control+option+command+r" else "DRIFT",
                        "bindings.transcribe.current_binding",
-                       json.dumps(binding), json.dumps("fn")))
+                       json.dumps(binding), json.dumps("control+option+command+r")))
 
 print("MODEL %s" % (settings.get("selected_model") or "<none>"))
 
@@ -375,9 +377,9 @@ PY
   fi
 fi
 
-# Symbolic hotkey 164 is macOS Dictation's double-Fn/Globe trigger. Handy owns
-# that physical key for hold-to-talk, so leaving 164 enabled produces competing
-# behaviour on a quick double press.
+# Symbolic hotkey 164 is macOS Dictation's double-Fn/Globe trigger. The managed
+# Karabiner bridge owns that physical key, so leaving 164 enabled produces
+# competing behaviour on a quick double press.
 dictation_hotkey_enabled="$(
   /usr/bin/defaults export com.apple.symbolichotkeys - 2>/dev/null |
     /usr/bin/plutil -extract 'AppleSymbolicHotKeys.164.enabled' raw -o - - 2>/dev/null
@@ -385,10 +387,63 @@ dictation_hotkey_enabled="$(
 case "$dictation_hotkey_enabled" in
   false) pass "macOS double-Fn Dictation shortcut is disabled" ;;
   true)
-    fail "macOS double-Fn Dictation shortcut competes with Handy's Fn binding"
+    fail "macOS double-Fn Dictation shortcut competes with Handy's Globe bridge"
     hint "System Settings ▸ Keyboard ▸ Dictation — change the Dictation shortcut"
     ;;
   *) warn "could not determine the macOS double-Fn Dictation shortcut state" ;;
+esac
+
+# Handy has only one transcribe binding. It listens to the Ulanzi chord
+# directly; Karabiner converts the physical Globe key to that chord. Check both
+# physical routes, including the active AU05 profile.
+VIBE_RULE_DESCRIPTION="Handy: Fn/Globe sends Ctrl+Option+Command+R (Ulanzi Vibe Key)"
+KARABINER_CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/karabiner/karabiner.json"
+ULANZI_ROOT="$HOME/Library/Application Support/Ulanzi/UlanziDeck"
+vibe_report="$(/usr/bin/python3 - "$KARABINER_CONFIG" "$ULANZI_ROOT" "$VIBE_RULE_DESCRIPTION" <<'PY' 2>/dev/null
+import glob, json, os, sys
+
+karabiner_path, root, description = sys.argv[1:]
+try:
+    karabiner = json.load(open(karabiner_path, encoding="utf-8"))
+    selected = [p for p in karabiner.get("profiles", []) if p.get("selected")]
+    rules = selected[0].get("complex_modifications", {}).get("rules", []) if len(selected) == 1 else []
+    print("RULE %s" % ("OK" if any(r.get("description") == description for r in rules) else "MISSING"))
+except Exception:
+    print("RULE UNREADABLE")
+
+try:
+    live = json.load(open(os.path.join(root, "config", "setting_source.json"), encoding="utf-8"))
+    uuid = live.get("CurrentDeviceType")
+    device = next(d for d in live.get("Devices", []) if d.get("CurrentDevice") == uuid)
+    if device.get("DeviceType") != "AU05":
+        print("HOTKEY NO_DEVICE")
+        raise SystemExit(0)
+    profile_name = device.get("CurrentProfile")
+    match = None
+    for path in glob.glob(os.path.join(root, "ProfilesV2", "*.ulanziProfile", "manifest.json")):
+        manifest = json.load(open(path, encoding="utf-8"))
+        if manifest.get("Device", {}).get("UUID") == uuid and manifest.get("Name") == profile_name:
+            match = (path, manifest)
+            break
+    page_path = os.path.join(os.path.dirname(match[0]), "Profiles", match[1]["Pages"]["Current"], "manifest.json")
+    page = json.load(open(page_path, encoding="utf-8"))
+    keypad = next(c for c in page["Controllers"] if c.get("Type") == "Keypad")
+    hotkey = keypad["Actions"]["0_0"]["ActionParam"]["Hotkey"]
+    print("HOTKEY %s" % ("OK" if hotkey == "⌃ ⌥ ⌘  R" else hotkey))
+except SystemExit:
+    pass
+except Exception:
+    print("HOTKEY UNREADABLE")
+PY
+)"
+case "$(sed -n 's/^RULE //p' <<<"$vibe_report")" in
+  OK) pass "Karabiner routes Fn/Globe to Handy's modifier binding" ;;
+  *)  warn "Handy's Fn/Globe Karabiner route is not active"; hint "./scripts/setup-handy-vibe-key.sh" ;;
+esac
+case "$(sed -n 's/^HOTKEY //p' <<<"$vibe_report")" in
+  OK)        pass "local Vibe Key profile declares Ctrl+Option+Command+R" ;;
+  NO_DEVICE) warn "no active Ulanzi AU05 Vibe Key profile found" ;;
+  *)         warn "Vibe Key Voice Input hotkey is not managed"; hint "./scripts/setup-handy-vibe-key.sh" ;;
 esac
 
 
