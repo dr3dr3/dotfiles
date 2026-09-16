@@ -95,7 +95,7 @@ Dotfile configs live in `.dotfiles/` and are organised as [GNU Stow](https://www
 
 ```
 .dotfiles/
-  bin/         → ~/.local/bin/               (host scripts: `devsh`)
+  bin/         → ~/.local/bin/               (host scripts: `devsh`, `pi-batch`)
                ↳ one script serves zsh + fish + nushell, so shell-agnostic
                  helpers go here rather than being written three times.
   cliamp/      → ~/.config/cliamp/radios.toml  (curated radio shortlist)

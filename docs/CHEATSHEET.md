@@ -32,6 +32,9 @@ runtimes** (PHP, Node apps, MySQL, Redis…) live inside dev containers.
 | `roe` | `code roe-local-dev.code-workspace` | **JIT editor — never bare `code .`** |
 | `ll` / `lt` | `eza -lah --git` / tree | listings |
 | `lg` | `lazygit` | host: dotfiles repo only; project Git runs in-container |
+| `pil` / `piw` | Pi on the local model / preload it | **local**, free — vs the billed gateway models in the same list |
+| `pi-batch` / `pi-batch-review` | run a batch overnight / review it | guarded: branch, no push, test gate |
+| `o-night` / `o-day` | pin / release the model in memory | stops a slow test run costing a cold reload |
 | `upd` | `update-mac.sh` | update + audit + assert the host |
 
 ---
@@ -276,6 +279,53 @@ zero reasoning tokens) is the other big lever for tool-heavy turns.
 `host.docker.internal` to the host loopback, so the default 127.0.0.1 bind is
 enough — and keeps a no-auth inference server off your LAN. `o-expose` is the
 escape hatch for Docker Desktop or another machine; `o-up` rebinds to loopback.
+
+---
+
+## 🌙 Overnight agent runs — `pi-batch`
+
+The shape: Claude or Codex plans a batch and writes a brief, Pi executes it
+overnight on the local model, and the morning question is only *is this worth
+keeping*.
+
+```bash
+pi-batch --brief work.md --test "make test"     # run it
+pi-batch --brief work.md --dry-run              # preflight only
+pi-batch-review                                 # morning: what happened
+pi-batch-review <stamp>                         # one run, with its diff
+pi-batch-review --failed                        # only what needs attention
+pi-batch-review --prune                         # drop records past 30 days
+```
+
+**Guardrails, and why each is there.** Every one of these was verified to fire:
+
+| Guard | Because |
+| --- | --- |
+| `caffeinate -is` wraps the run | this Mac is `sleep 1` on AC — it suspends a minute after you walk away and takes OrbStack's VM with it |
+| isolated `pi-batch/<stamp>` branch | your branch never receives an unattended commit |
+| a pre-push hook that refuses | belt and braces; `git push` exits 1 |
+| refuses to start on a dirty tree | agent commits on top of your uncommitted work cannot be separated afterwards |
+| tests before **and** after | the expensive failure is not an agent that does nothing, it is one that writes plausible wrong code and commits it |
+
+Without `--test` there is no gate, and the run says so rather than implying
+safety. The agent is not sandboxed beyond this — Pi has no permission system,
+the container is the sandbox — so scope the brief to the work you want done.
+
+**"Outstanding" means the branch still exists.** There is no reviewed flag: the
+branch *is* what you must act on, so merging or deleting it is the review, and a
+branch cannot drift out of sync the way a flag can. Parking something? Rename it
+off the prefix (`git branch -m pi-batch/x parked/x`). `doctor-mac.sh` warns while
+runs are unreviewed, and `--prune` refuses to delete a record whose branch
+survives.
+
+Records and logs live in `~/.local/state/pi-batch` — host-only on purpose.
+`~/host-share` is mounted *into* the containers, and an agent able to read its
+own past runs turns one night's mistakes into the next night's context.
+
+**Research is the weak leg.** Pi's built-in tools are read/bash/edit/write — no
+web search, no fetch. Have Claude/Codex do the research at planning time and bake
+the findings into the brief; the local model then executes against a closed
+world, which is what it is good at.
 
 ---
 

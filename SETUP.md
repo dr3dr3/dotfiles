@@ -173,6 +173,11 @@ These `devcontainer exec` into the project's container — nothing runs on the h
    See [docs/CHEATSHEET.md › Local LLM](docs/CHEATSHEET.md) for which tag to pick
    and why the first call is slow and the rest are not.
 
+   For unattended overnight work use **`pi-batch`**, not bare `pi`: it holds the
+   Mac awake (this host sleeps after a minute idle), works on a throwaway branch
+   it cannot push, and gates on your test suite. `pi-batch-review` is the morning
+   read-out. See [docs/CHEATSHEET.md › Overnight agent runs](docs/CHEATSHEET.md).
+
 ---
 
 ## Local LLM — Ollama (fallback / transient only)
