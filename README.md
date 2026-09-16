@@ -13,6 +13,8 @@ The same tracked terminal configuration supports four environments:
 Herdr setup and its Omarchy-compatible keymap are documented in
 [`docs/HERDR.md`](docs/HERDR.md). Local voice dictation into those terminals —
 host-native, on-device, no cloud — is in [`docs/HANDY.md`](docs/HANDY.md).
+Running a local model and handing overnight work to the Pi harness is in
+[`docs/LOCAL-AI.md`](docs/LOCAL-AI.md).
 
 ## 🍎 macOS Setup
 
@@ -138,7 +140,7 @@ Dotfile configs live in `.dotfiles/` and are organised as [GNU Stow](https://www
   zsh/         → ~/.zshrc + ~/.config/zsh/   (macOS host default shell)
   ghostty/     → ~/.config/ghostty/config    (macOS terminal)
   herdr/       → ~/.config/herdr/config.toml (portable Omarchy-style keymap)
-  karabiner/   → ~/.config/karabiner/assets/ (macOS Caps Lock → Herdr prefix rule)
+  karabiner/   → ~/.config/karabiner/assets/ (Herdr Caps Lock and Handy/Vibe Key rules)
   fish/        → ~/.config/fish/             (Fish shell — host + containers)
   nushell/     → ~/.config/nushell/          (Nushell — host + containers)
                ↳ macOS ONLY: nushell reads ~/Library/Application Support/
