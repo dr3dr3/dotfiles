@@ -11,7 +11,8 @@ The same tracked terminal configuration supports four environments:
 - **Windows 11** — native Herdr setup through PowerShell.
 
 Herdr setup and its Omarchy-compatible keymap are documented in
-[`docs/HERDR.md`](docs/HERDR.md).
+[`docs/HERDR.md`](docs/HERDR.md). Local voice dictation into those terminals —
+host-native, on-device, no cloud — is in [`docs/HANDY.md`](docs/HANDY.md).
 
 ## 🍎 macOS Setup
 
@@ -37,7 +38,8 @@ It is idempotent (safe to re-run) and will:
 5. Print the one-time manual steps (1Password SSH agent, default shell, …)
 
 **Stack:** Ghostty terminal · OrbStack engine · `@devcontainers/cli` to boot
-stacks headlessly · Ollama (local LLM, fallback only) · 1Password for secrets.
+stacks headlessly · Ollama (local LLM, fallback only) · 1Password for secrets ·
+Handy (push-to-talk dictation, transcribed on-device).
 The host is a **launcher** — AI agents (Claude Code, Codex, Pi) run *inside* the
 dev containers, provisioned by [dotai](https://github.com/dr3dr3/dotai); the
 `cc`/`cca`/`cx`/`pi` aliases just `devcontainer exec` into them. Secret wiring
@@ -124,7 +126,7 @@ Dotfile configs live in `.dotfiles/` and are organised as [GNU Stow](https://www
 
 ```
 .dotfiles/
-  bin/         → ~/.local/bin/               (host scripts: `devsh`)
+  bin/         → ~/.local/bin/               (host scripts: `devsh`, `pi-batch`)
                ↳ one script serves zsh + fish + nushell, so shell-agnostic
                  helpers go here rather than being written three times.
   cliamp/      → ~/.config/cliamp/radios.toml  (curated radio shortlist)
@@ -154,6 +156,20 @@ and Fish + Nushell carry the same host wiring as zsh (mise, 1Password agent,
 fzf/zoxide, the devcontainer/agent aliases). In **containers**, use `scripts/setup-devcontainer.sh` as described above.
 
 To apply a single package manually: `cd .dotfiles && stow --target "$HOME" fish`
+
+`config/` is the third kind of tracked configuration: files that belong to a
+tool but must **not** be symlinked into place, either because the target is
+Linux-only or because the tool's directory is full of runtime state.
+
+```
+config/
+  keyd/        → Omarchy/Linux Caps Lock remap (applied by scripts/setup-herdr-capslock-linux.sh)
+  handy/       → developer vocabulary for voice dictation
+               ↳ merged INTO ~/Library/Application Support/com.pais.handy/ by
+                 scripts/setup-handy.sh. That directory is never stowed: it also
+                 holds GB-scale model weights, WAV recordings and transcript
+                 history. See docs/HANDY.md and "Folded symlinks" below.
+```
 
 ### ⚠️ Folded symlinks: tools can write into this repo
 

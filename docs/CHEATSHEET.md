@@ -32,6 +32,9 @@ runtimes** (PHP, Node apps, MySQL, Redis…) live inside dev containers.
 | `roe` | `code roe-local-dev.code-workspace` | **JIT editor — never bare `code .`** |
 | `ll` / `lt` | `eza -lah --git` / tree | listings |
 | `lg` | `lazygit` | host: dotfiles repo only; project Git runs in-container |
+| `pil` / `piw` | Pi on the local model / preload it | **local**, free — vs the billed gateway models in the same list |
+| `pi-batch` / `pi-batch-review` | run a batch overnight / review it | guarded: branch, no push, test gate |
+| `o-night` / `o-day` | pin / release the model in memory | stops a slow test run costing a cold reload |
 | `upd` | `update-mac.sh` | update + audit + assert the host |
 
 ---
@@ -116,10 +119,19 @@ These tools belong in a plain host tab and are declared in the root Brewfile:
 | Host authentication | `op whoami`, `ssh-add -l`, `gh auth status` | 1Password CLI session, SSH agent identities, and GitHub CLI authentication; 1Password may ask to unlock/approve. |
 | Dotfiles maintenance | `cd ~/Code/dr3dr3/dotfiles`, then `./doctor-mac.sh` or `upd` | Read-only host audit or host updates. |
 | Dotfiles Git | `cd ~/Code/dr3dr3/dotfiles`, then `lazygit` (`lg`) | Host Git TUI only for this repo; use the container's Git tooling for project repos. |
+| Voice dictation | hold the MacBook `Fn/Globe` key, speak, release | Handy, host-native. Transcribes on-device and pastes into the focused pane — Ghostty/Herdr included. Needs Microphone + Accessibility in Privacy & Security. |
+
+Logi Options+ owns the MX Vertical and MX Keys mappings on macOS. The intended
+layout is: MX Vertical back/forward buttons switch Ghostty panes (`Cmd+[` /
+`Cmd+]`) in its Ghostty profile, the top button sends the Herdr prefix
+(`Ctrl+Alt+Space`), and a spare MX Keys function key opens Harvest's time
+summary (`Option+Cmd+S`). These mappings are machine-local; macOS must grant
+Options+ Accessibility and Input Monitoring access.
 
 Apply the declared tools with `brew bundle install --no-upgrade`, then check
-with `brew bundle check`. Use `ollama serve` for an on-demand local server;
-the existing `o-up` / `o-down` aliases manage the service for container access.
+with `brew bundle check`. Use `ollama serve` for an on-demand local server; the
+`o-up` / `o-down` aliases start and stop it, and `o-stop` unloads a model while
+leaving the server running.
 
 Ghostty runs on the **host**; you "work inside" a container by running a shell
 **in a Ghostty pane**. Typical layout — one window, four splits:
@@ -225,16 +237,95 @@ vr <cmd>                         # = varlock run -- <cmd>  (inject resolved env)
 ## 🤖 Local LLM — Ollama (fallback / transient only)
 
 ```bash
-olu qwen2.5-coder:32b     # pull a model
-olr qwen2.5-coder:32b     # run it
+olu qwen3.8:27b-mlx       # pull a model  (prefer -mlx tags — see below)
+olr qwen3.8:27b-mlx       # run it
 olp                       # what's resident in unified memory RIGHT NOW
-olrm qwen2.5-coder:32b    # evict it to reclaim memory
+o-stop qwen3.8:27b-mlx    # UNLOAD from memory (model stays on disk)
+olrm qwen3.8:27b-mlx      # DELETE from disk — not what you want to free RAM
 ```
 
-> **Memory budget (64GB unified):** dev stack ≈16GB + a 32b model ≈20GB resident
+> ⚠️ **`olrm` is `ollama rm` — it deletes the model**, an 18GB re-download. This
+> page used to recommend it for reclaiming memory, which was wrong. To free
+> unified memory use **`o-stop`** (`ollama stop`), or just wait: Ollama unloads
+> after `OLLAMA_KEEP_ALIVE`, default 5 minutes. `olp` shows an `UNTIL` column.
+
+> **Memory budget (64GB unified):** dev stack ≈16GB + a 27B model ≈19GB resident
 > + Claude Code. It fits, but the model and the containers share the same pool —
-> **`olrm` the model when you're done** so it doesn't starve the stack. Local
+> **`o-stop` the model when you're done** so it doesn't starve the stack. Local
 > LLM memory is not free.
+
+**Which tag — measured, not assumed.** Ollama runs on Apple's MLX on Apple
+Silicon (0.19+), so `-mlx` tags get the MLX engine and plain GGUF tags fall back
+to Metal. That makes `-mlx` the obvious pick, and on this host it is the wrong
+one. Benchmarked 2026-09-14, 12.6k-token prompt:
+
+| Tag | Prefill | Generation | Size |
+| --- | --- | --- | --- |
+| **`qwen3.8:27b-mtp-q4_K_M`** | **314 tok/s** | 26.2 tok/s | 17GB |
+| `qwen3.8:27b-mlx` | 129 tok/s | 24.5 tok/s | 18GB |
+
+The `mtp` tags carry built-in multi-token prediction (self-speculative decoding),
+and that beats the MLX engine by **2.4x on prefill** — the number you actually
+feel in an agentic loop. End to end, one `pi -p` turn: **134s vs 277s**. The
+trade is quantization quality: `nvfp4` (mlx) is a better 4-bit format than
+`Q4_K_M`, so keep `-mlx` if you find MTP's output worse on your work.
+
+**The second call is ~0s.** Ollama caches the prompt prefix and Pi resends the
+same system prompt and tools every turn, so the prefill is paid once per session,
+not per turn. `--thinking off` (→ `reasoning_effort: none`, verified to produce
+zero reasoning tokens) is the other big lever for tool-heavy turns.
+
+**Containers reach it without any extra binding.** OrbStack forwards
+`host.docker.internal` to the host loopback, so the default 127.0.0.1 bind is
+enough — and keeps a no-auth inference server off your LAN. `o-expose` is the
+escape hatch for Docker Desktop or another machine; `o-up` rebinds to loopback.
+
+---
+
+## 🌙 Overnight agent runs — `pi-batch`
+
+The shape: Claude or Codex plans a batch and writes a brief, Pi executes it
+overnight on the local model, and the morning question is only *is this worth
+keeping*.
+
+```bash
+pi-batch --brief work.md --test "make test"     # run it
+pi-batch --brief work.md --dry-run              # preflight only
+pi-batch-review                                 # morning: what happened
+pi-batch-review <stamp>                         # one run, with its diff
+pi-batch-review --failed                        # only what needs attention
+pi-batch-review --prune                         # drop records past 30 days
+```
+
+**Guardrails, and why each is there.** Every one of these was verified to fire:
+
+| Guard | Because |
+| --- | --- |
+| `caffeinate -is` wraps the run | this Mac is `sleep 1` on AC — it suspends a minute after you walk away and takes OrbStack's VM with it |
+| isolated `pi-batch/<stamp>` branch | your branch never receives an unattended commit |
+| a pre-push hook that refuses | belt and braces; `git push` exits 1 |
+| refuses to start on a dirty tree | agent commits on top of your uncommitted work cannot be separated afterwards |
+| tests before **and** after | the expensive failure is not an agent that does nothing, it is one that writes plausible wrong code and commits it |
+
+Without `--test` there is no gate, and the run says so rather than implying
+safety. The agent is not sandboxed beyond this — Pi has no permission system,
+the container is the sandbox — so scope the brief to the work you want done.
+
+**"Outstanding" means the branch still exists.** There is no reviewed flag: the
+branch *is* what you must act on, so merging or deleting it is the review, and a
+branch cannot drift out of sync the way a flag can. Parking something? Rename it
+off the prefix (`git branch -m pi-batch/x parked/x`). `doctor-mac.sh` warns while
+runs are unreviewed, and `--prune` refuses to delete a record whose branch
+survives.
+
+Records and logs live in `~/.local/state/pi-batch` — host-only on purpose.
+`~/host-share` is mounted *into* the containers, and an agent able to read its
+own past runs turns one night's mistakes into the next night's context.
+
+**Research is the weak leg.** Pi's built-in tools are read/bash/edit/write — no
+web search, no fetch. Have Claude/Codex do the research at planning time and bake
+the findings into the brief; the local model then executes against a closed
+world, which is what it is good at.
 
 ---
 
@@ -288,6 +379,38 @@ The `OUT` line under the EQ shows what is actually active.
 
 ---
 
+## 🎙️ Voice dictation — Handy
+
+Push-to-talk, transcribed **on this Mac**. No account, no API key, no per-minute
+cost; the only thing that would send text off-box is post-processing, which is
+pinned off. Full runbook: [HANDY.md](HANDY.md).
+
+```bash
+./scripts/setup-handy.sh             # apply the repo's profile (idempotent)
+./scripts/setup-handy.sh --dry-run   # show what would change
+$EDITOR ../config/handy/vocabulary.txt && ./scripts/setup-handy.sh   # add terms
+```
+
+| | |
+| --- | --- |
+| Hold to talk | MacBook `Fn/Globe` (no clash with the Herdr prefix, `Ctrl+Alt+Space`) |
+| Cancel | `Escape` while recording |
+| Model | Whisper Medium — pick it in Handy ▸ Settings ▸ Models, it downloads ~1.5GB |
+| Config | merged into `~/Library/Application Support/com.pais.handy/`, **never stowed** |
+
+- ⚠️ **Auto Submit stays OFF.** It appends Return to every transcript — dictating
+  into a terminal would *run* what Whisper heard. `doctor-mac.sh` fails if it is on.
+- **Nothing here touches macOS permissions.** Grant Microphone and Accessibility
+  by hand. Accessibility failing is silent: transcription works, the paste never
+  lands. Check that pane first when dictation "does nothing".
+- **No recordings or history are kept** (`history_limit 0` +
+  `recording_retention_period preserve_limit` prunes each WAV after transcription),
+  and your clipboard is snapshotted and restored around every paste.
+- Speech is bad at file paths, version numbers and flags. Dictate intent
+  ("rerun the failing test in the devcontainer") and type the syntax.
+
+---
+
 ## 🧹 Maintenance & security
 
 Goal: stay current (90% of "vuln-free" is just being up to date) and keep the
@@ -324,8 +447,9 @@ repo says?"* — which is where the real problems have hidden:
 | the **working tree is clean** | three installers have written into this repo via folded symlinks |
 | all tracked files are **LF** | CRLF drifted in three times before `.gitattributes` |
 | node comes **from mise**, `devcontainer` exists, `~/.local/bin` on PATH | a stray brew/nvm node shadowing mise is invisible otherwise |
-| ollama is **bound to all interfaces** | bound to loopback it is unreachable from containers |
+| ollama's bind **matches the container engine** | the old check demanded a 0.0.0.0 bind OrbStack never needed, and failed on a healthy host |
 | `brew autoupdate` **actually runs** | an untrusted tap breaks the CLI while the launchd job keeps working |
+| Handy's **Auto Submit is off**, plus the rest of its profile | it is a UI toggle, not a tracked file — and on, dictation presses Return in your terminal |
 
 > Each check is verified to *fail* when it should, not just pass when things are
 > fine — a check that cannot fail is worse than no check, because it reads as

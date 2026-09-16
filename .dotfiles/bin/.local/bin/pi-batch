@@ -1,0 +1,288 @@
+#!/usr/bin/env bash
+# =============================================================================
+# pi-batch — run an unattended Pi task batch against the local model, safely.
+#
+# The intended shape: Claude or Codex plans a batch of work and writes a brief;
+# this runs Pi against that brief overnight on the host's local model, on an
+# isolated branch it cannot push, with the test suite as the gate on whether the
+# result is worth looking at in the morning.
+#
+# Usage:
+#   pi-batch --brief work.md --test "make test"
+#   pi-batch --brief work.md --test "make test" --container roe-devcontainer
+#   pi-batch --brief work.md --dry-run          # preflight only, runs no agent
+#
+# -----------------------------------------------------------------------------
+# WHY EACH GUARDRAIL EXISTS
+#
+# 1. SLEEP. This Mac is configured `sleep 1` on AC — it suspends after a minute
+#    idle, and OrbStack's VM goes with it, so an overnight run dies shortly
+#    after you walk away. Everything below is wrapped in `caffeinate -is`, which
+#    holds only for this command rather than changing your global pmset.
+#
+# 2. AN ISOLATED BRANCH. The agent works on pi-batch/<timestamp>, cut from
+#    whatever you were on. Your branch is never committed to.
+#
+# 3. A PRE-PUSH HOOK THAT REFUSES. Belt and braces: even if the agent decides to
+#    push, git declines. Removed again when the run ends.
+#
+# 4. A REFUSAL TO START ON A DIRTY TREE. Uncommitted work would get tangled with
+#    the agent's commits and be impossible to separate in the morning.
+#
+# 5. A TEST GATE. Tests run BEFORE (to record what was already broken) and AFTER.
+#    The failure mode that costs you a morning is not an agent that does nothing
+#    — it is one that writes plausible, wrong code and commits it. Without
+#    --test you get no gate, and the script says so rather than implying safety.
+#
+# 6. A TRANSCRIPT. Everything is tee'd to a log, and Pi keeps a named session,
+#    so a diff you do not understand has reasoning attached.
+#
+# The agent is NOT sandboxed beyond this. Pi has no permission system — the
+# container is the sandbox — so scope the brief to the work you want done.
+# =============================================================================
+set -uo pipefail
+
+BRIEF=""; TEST_CMD=""; CONTAINER=""; WORKDIR="/workspace"; DRY_RUN=0
+MODEL="${PI_LOCAL_MODEL:-}"
+THINKING="off"
+KEEP_ALIVE="${PI_BATCH_KEEP_ALIVE:-12h}"
+# Host-only on purpose. ~/host-share is bind-mounted INTO the containers, so
+# putting run logs there would let an agent read its own previous runs — a
+# subtle way for one night's mistakes to become the next night's context.
+LOG_DIR="${PI_BATCH_LOG_DIR:-$HOME/.local/state/pi-batch}"
+
+info() { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
+ok()   { printf '\033[1;32m  ✓\033[0m %s\n' "$*"; }
+warn() { printf '\033[1;33m  !\033[0m %s\n' "$*"; }
+die()  { printf '\033[1;31m  ✗\033[0m %s\n' "$*" >&2; exit 1; }
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --brief)     BRIEF="${2:-}"; shift 2 ;;
+    --test)      TEST_CMD="${2:-}"; shift 2 ;;
+    --container) CONTAINER="${2:-}"; shift 2 ;;
+    --workdir)   WORKDIR="${2:-}"; shift 2 ;;
+    --model)     MODEL="${2:-}"; shift 2 ;;
+    --thinking)  THINKING="${2:-}"; shift 2 ;;
+    --dry-run)   DRY_RUN=1; shift ;;
+    -h|--help)   sed -n '2,16p' "${BASH_SOURCE[0]}"; exit 0 ;;
+    *)           die "Unknown option: $1 (try --help)" ;;
+  esac
+done
+
+[[ -n "$BRIEF" ]] || die "--brief FILE is required. Write the task brief first (Claude/Codex can)."
+[[ -f "$BRIEF" ]] || die "Brief not found: $BRIEF"
+[[ -n "$MODEL"  ]] || die "No model. Set PI_LOCAL_MODEL in your shell env, or pass --model."
+
+# --- resolve the container ---------------------------------------------------
+if [[ -z "$CONTAINER" ]]; then
+  # NB: no `mapfile` — macOS ships bash 3.2, where it does not exist. Every
+  # script in this repo has to stay 3.2-compatible for the same reason.
+  running="$(docker ps --format '{{.Names}}' 2>/dev/null)"
+  count="$(printf '%s\n' "$running" | grep -c . || true)"
+  if [[ "$count" -eq 1 ]]; then
+    CONTAINER="$running"
+  else
+    die "Found $count running containers — pass --container <name>.
+$(printf '%s\n' "${running:-        (none running)}" | sed 's/^/        /')"
+  fi
+fi
+docker inspect "$CONTAINER" >/dev/null 2>&1 || die "No such container: $CONTAINER"
+dex() { docker exec -w "$WORKDIR" "$CONTAINER" bash -lc "$1"; }
+
+info "Preflight"
+ok "container: $CONTAINER   workdir: $WORKDIR"
+
+# --- the model must be present AND reachable from the container --------------
+dex "curl -fsS --max-time 5 http://host.docker.internal:11434/api/version >/dev/null" \
+  || die "$CONTAINER cannot reach the host Ollama. Is it running? (\`olp\`)"
+if ! ollama list 2>/dev/null | awk 'NR>1{print $1}' | grep -qx "$MODEL"; then
+  die "Model not pulled on the host: $MODEL
+      Pull it first:  olu $MODEL"
+fi
+ok "model present and reachable: $MODEL"
+
+# --- the tree must be clean --------------------------------------------------
+dex "git rev-parse --is-inside-work-tree >/dev/null 2>&1" \
+  || die "$WORKDIR in $CONTAINER is not a git repository."
+dirty="$(dex 'git status --porcelain' | tr -d '\r')"
+[[ -z "$dirty" ]] || die "Working tree is dirty. Commit or stash first — an unattended
+      agent committing on top of your changes is not separable afterwards.
+$(sed 's/^/        /' <<<"$dirty")"
+ok "working tree clean"
+
+BASE_BRANCH="$(dex 'git rev-parse --abbrev-ref HEAD' | tr -d '\r')"
+BASE_SHA="$(dex 'git rev-parse HEAD' | tr -d '\r')"
+ok "base: $BASE_BRANCH @ ${BASE_SHA:0:8}"
+
+STAMP="$(date +%Y%m%d-%H%M%S)"
+BATCH_BRANCH="pi-batch/$STAMP"
+mkdir -p "$LOG_DIR"
+LOG="$LOG_DIR/$STAMP.log"
+RECORD="$LOG_DIR/$STAMP.json"
+ok "log: $LOG"
+
+if [[ -z "$TEST_CMD" ]]; then
+  warn "No --test given: this run has NO quality gate."
+  warn "  Whatever the agent commits will be unverified. Prefer --test \"<cmd>\"."
+fi
+
+if [[ "$DRY_RUN" == "1" ]]; then
+  info "Dry run — preflight only, no branch created and no agent started."
+  exit 0
+fi
+
+# --- everything from here is logged ------------------------------------------
+exec > >(tee -a "$LOG") 2>&1
+echo "=== pi-batch $STAMP ==="
+echo "container=$CONTAINER workdir=$WORKDIR model=$MODEL thinking=$THINKING"
+echo "base=$BASE_BRANCH@$BASE_SHA branch=$BATCH_BRANCH"
+echo "brief=$BRIEF test=${TEST_CMD:-<none>}"
+
+cleanup() {
+  local rc=$?
+  dex "rm -f .git/hooks/pre-push /tmp/pi-brief.md" >/dev/null 2>&1
+  # Restore the normal 5-minute model unload so an idle host frees memory.
+  launchctl unsetenv OLLAMA_KEEP_ALIVE >/dev/null 2>&1
+  brew services restart ollama >/dev/null 2>&1
+  return $rc
+}
+trap cleanup EXIT
+
+# --- keep the model resident between turns -----------------------------------
+# Default unload is 5 minutes; a slow test run between turns would otherwise
+# cost a full cold load every time. Restored by the trap above.
+info "Pinning model in memory for the run (OLLAMA_KEEP_ALIVE=$KEEP_ALIVE)"
+launchctl setenv OLLAMA_KEEP_ALIVE "$KEEP_ALIVE"
+brew services restart ollama >/dev/null 2>&1
+for _ in $(seq 1 30); do
+  curl -fsS --max-time 2 http://127.0.0.1:11434/api/version >/dev/null 2>&1 && break
+  sleep 1
+done
+ok "ollama up"
+
+# --- branch + refuse-to-push hook --------------------------------------------
+dex "git checkout -q -b '$BATCH_BRANCH'" || die "Could not create $BATCH_BRANCH"
+ok "on $BATCH_BRANCH"
+
+dex "mkdir -p .git/hooks && cat > .git/hooks/pre-push <<'HOOK'
+#!/bin/sh
+echo 'pi-batch: push refused. This is an unattended agent branch — review it first.' >&2
+exit 1
+HOOK
+chmod +x .git/hooks/pre-push" || warn "Could not install the pre-push hook."
+ok "pre-push hook installed (pushes will be refused)"
+
+# --- baseline ----------------------------------------------------------------
+BASELINE="skipped"
+if [[ -n "$TEST_CMD" ]]; then
+  info "Baseline test run"
+  if dex "$TEST_CMD"; then BASELINE="pass"; ok "baseline: pass"
+  else BASELINE="fail"; warn "baseline: FAIL — tests were already broken before the agent ran"; fi
+fi
+
+# --- run the agent -----------------------------------------------------------
+# Stream it in rather than `docker cp`: cp lands the file owned by root, so the
+# cleanup `rm` later fails silently as the container user and the brief is left
+# behind. Writing through the container user's own shell keeps ownership right.
+docker exec -i -u "$(docker exec "$CONTAINER" id -un)" "$CONTAINER" \
+  sh -c 'cat > /tmp/pi-brief.md' < "$BRIEF" \
+  || die "Could not copy the brief into $CONTAINER"
+
+info "Starting Pi (caffeinate holds the Mac awake for the whole run)"
+START=$(date +%s)
+caffeinate -is docker exec -w "$WORKDIR" "$CONTAINER" bash -lc \
+  "pi -p --provider ollama --model '$MODEL' --thinking '$THINKING' \
+      --name 'pi-batch-$STAMP' @/tmp/pi-brief.md"
+AGENT_RC=$?
+ELAPSED=$(( $(date +%s) - START ))
+[[ $AGENT_RC -eq 0 ]] && ok "agent finished (${ELAPSED}s)" || warn "agent exited $AGENT_RC (${ELAPSED}s)"
+
+# --- what did it actually do? ------------------------------------------------
+info "Result"
+COMMITS="$(dex "git log --oneline '$BASE_SHA..HEAD'" | tr -d '\r')"
+if [[ -z "$COMMITS" ]]; then
+  warn "no commits made"
+else
+  echo "$COMMITS" | sed 's/^/      /'
+fi
+dex "git status --porcelain" | sed 's/^/      uncommitted: /' | head -20
+
+# --- the gate ----------------------------------------------------------------
+VERDICT="unverified (no --test)"
+if [[ -n "$TEST_CMD" ]]; then
+  info "Post-run test gate"
+  if dex "$TEST_CMD"; then
+    VERDICT="PASS"; ok "tests pass"
+  else
+    VERDICT="FAIL"
+    warn "TESTS FAIL — do not merge this branch without reading it"
+    [[ "$BASELINE" == "fail" ]] && warn "  (they were already failing before the run)"
+  fi
+fi
+
+# --- structured record -------------------------------------------------------
+# The log is for reading; this is for `pi-batch-review` to query. Keeping them
+# separate means the review tool never has to parse prose.
+DIFFSTAT="$(dex "git diff --shortstat '$BASE_SHA'..HEAD" | tr -d '\r')"
+COMMIT_JSON="$(dex "git log --format='%H%x1f%s' '$BASE_SHA'..HEAD" | tr -d '\r')"
+STAMP="$STAMP" MODEL="$MODEL" CONTAINER="$CONTAINER" WORKDIR="$WORKDIR" \
+BASE_BRANCH="$BASE_BRANCH" BASE_SHA="$BASE_SHA" BATCH_BRANCH="$BATCH_BRANCH" \
+BRIEF="$BRIEF" AGENT_RC="$AGENT_RC" ELAPSED="$ELAPSED" BASELINE="$BASELINE" \
+VERDICT="$VERDICT" LOG="$LOG" TEST_CMD="$TEST_CMD" THINKING="$THINKING" \
+DIFFSTAT="$DIFFSTAT" COMMIT_JSON="$COMMIT_JSON" \
+/usr/bin/python3 -c '
+import json, os, re
+commits = []
+for line in os.environ.get("COMMIT_JSON", "").splitlines():
+    if "\x1f" in line:
+        sha, subject = line.split("\x1f", 1)
+        commits.append({"sha": sha, "subject": subject})
+def num(pattern, text):
+    m = re.search(pattern, text)
+    return int(m.group(1)) if m else 0
+ds = os.environ.get("DIFFSTAT", "")
+rec = {
+    "stamp":        os.environ["STAMP"],
+    "model":        os.environ["MODEL"],
+    "thinking":     os.environ["THINKING"],
+    "container":    os.environ["CONTAINER"],
+    "workdir":      os.environ["WORKDIR"],
+    "base_branch":  os.environ["BASE_BRANCH"],
+    "base_sha":     os.environ["BASE_SHA"],
+    "batch_branch": os.environ["BATCH_BRANCH"],
+    "brief":        os.environ["BRIEF"],
+    "test_cmd":     os.environ["TEST_CMD"],
+    "agent_exit":   int(os.environ["AGENT_RC"]),
+    "elapsed_s":    int(os.environ["ELAPSED"]),
+    "commits":      commits,
+    "diffstat":     {"files":      num(r"(\d+) files? changed", ds),
+                     "insertions": num(r"(\d+) insertions?", ds),
+                     "deletions":  num(r"(\d+) deletions?", ds)},
+    "baseline":     os.environ["BASELINE"],
+    "verdict":      os.environ["VERDICT"],
+    "log":          os.environ["LOG"],
+    "session":      "pi-batch-" + os.environ["STAMP"],
+}
+print(json.dumps(rec, indent=2))
+' > "$RECORD" && ok "record: $RECORD"
+
+cat <<EOF
+
+────────────────────────────────────────────────────────────────────────────
+pi-batch $STAMP
+  branch    $BATCH_BRANCH   (not pushed, and pushing was blocked)
+  base      $BASE_BRANCH @ ${BASE_SHA:0:8}
+  model     $MODEL
+  agent     exit $AGENT_RC in ${ELAPSED}s
+  tests     baseline=$BASELINE  after=$VERDICT
+  log       $LOG
+  session   pi --resume  (named pi-batch-$STAMP)
+
+Review:  pi-batch-review $STAMP
+Discard: git branch -D $BATCH_BRANCH   (deleting the branch IS marking it reviewed)
+────────────────────────────────────────────────────────────────────────────
+EOF
+
+[[ "$VERDICT" == "FAIL" ]] && exit 1
+exit $AGENT_RC

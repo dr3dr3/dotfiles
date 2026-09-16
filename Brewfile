@@ -120,6 +120,49 @@ brew "zellij"              # terminal multiplexer — persistent sessions that
                             # (Reattach with `zj`; 2x2 workspace with `zjd`.)
 cask "karabiner-elements"  # Ghostty-scoped Caps Lock → Ctrl+Alt+Space remap for
                             # Herdr; rule lives in the karabiner stow package.
+cask "logi-options+"       # MX Keys + MX Vertical button/key customisation.
+                            # Host-native: app-specific Ghostty mappings and
+                            # Harvest shortcuts need macOS Accessibility and
+                            # Input Monitoring permissions. Options+ auto-updates;
+                            # mappings remain machine-local in Logitech state.
+
+# --- Voice dictation (host-native, fully local) -------------------------------
+cask "handy"               # push-to-talk dictation that transcribes ON-DEVICE
+                           # (whisper.cpp / Parakeet, Metal-accelerated) and
+                           # pastes into whatever has focus — including a
+                           # Ghostty pane running Herdr. No cloud, no API key,
+                           # no account, no subscription: nothing leaves the
+                           # Mac. MIT, github.com/cjpais/Handy.
+                           #
+                           # HOST-NATIVE ON PURPOSE. Dictation needs the mic and
+                           # the macOS accessibility/paste path, neither of which
+                           # a dev container has. It types into the focused
+                           # window, so the container side needs no awareness of
+                           # it at all — same shape as Karabiner above.
+                           #
+                           # TWO TCC PROMPTS ON FIRST RUN, both manual by design
+                           # (Microphone + Accessibility). Nothing in this repo
+                           # touches TCC — grant them in System Settings; see
+                           # docs/HANDY.md. Until Accessibility is granted the
+                           # transcript silently never lands anywhere.
+                           #
+                           # ⚠️ Auto Submit MUST stay OFF. It appends Return to
+                           # the transcript; dictating into a terminal would run
+                           # whatever Whisper heard, with no chance to read it
+                           # first. Asserted by doctor-mac.sh.
+                           #
+                           # Settings + models live in ~/Library/Application
+                           # Support/com.pais.handy/ and are NOT stowed: that
+                           # directory holds GB-scale model weights plus
+                           # recordings and transcript history. Only the
+                           # settings keys we care about are managed, by
+                           # scripts/setup-handy.sh merging into
+                           # settings_store.json. See README › Folded symlinks
+                           # for why symlinking it would be a mistake.
+                           #
+                           # Self-updating (auto_updates), so brew neither
+                           # fights it nor nags in `brew outdated` — unlike the
+                           # claude-code cask below.
 
 # --- AI coding agents (host copies — deliberate exception) -------------------
 # The default is still container-first: agents are installed *inside* the dev
@@ -158,12 +201,16 @@ brew "ollama"              # CLI + server (headless; no menu-bar app). Cleaner f
                             # and stop the service to reclaim memory when idle.
                             # `oll`/`olp`/`olr` aliases drive it. (Swap to
                             # cask "ollama-app" if you want the native menu-bar app.)
-                            # For in-container agents to reach it via
-                            # host.docker.internal it must bind 0.0.0.0 — use
-                            # the `o-up` alias. The exported OLLAMA_HOST covers
-                            # only a shell-started `ollama serve`; the launchd
-                            # service does NOT inherit it (see zsh/env.zsh).
-                            # o-up is not persistent across reboot.
+                            # In-container agents reach it on the DEFAULT
+                            # 127.0.0.1 bind: OrbStack forwards
+                            # host.docker.internal to the host loopback.
+                            # Verified 2026-09-14 — this file previously claimed
+                            # a 0.0.0.0 bind was required, and it is not. Use
+                            # `o-expose` only for Docker Desktop or another
+                            # machine; it is LAN-visible and has no auth.
+                            # MLX: Ollama runs on Apple's MLX on Apple Silicon
+                            # (0.19+), so prefer the `-mlx` model tags — plain
+                            # GGUF tags fall back to the llama.cpp Metal path.
                             # Heads-up: a 32b model is ~20GB resident in unified
                             # memory and competes with the ~16GB dev stack —
                             # local LLM memory is NOT free.

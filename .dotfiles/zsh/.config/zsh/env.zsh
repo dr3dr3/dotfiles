@@ -6,21 +6,44 @@
 # =============================================================================
 
 # --- Ollama ------------------------------------------------------------------
-# Bind the host Ollama server to all interfaces so in-container agents can reach
-# it via host.docker.internal:11434 (OrbStack maps it). This export applies ONLY
-# when you start the server from a shell — e.g. `ollama serve` in a pane.
+# Deliberately NOT setting OLLAMA_HOST here. Ollama's default bind — 127.0.0.1
+# — is both sufficient and the safer choice on this host.
 #
-# For the launchd-managed (`brew services`) server this export does nothing, and
-# neither does prefixing the var to `brew services restart` — brew services does
-# not propagate arbitrary shell env into the plist it generates. Verified
-# 2026-09-03: the plist carried only the formula's own OLLAMA_FLASH_ATTENTION /
-# OLLAMA_KV_CACHE_TYPE, and the running server was bound to 127.0.0.1 (i.e.
-# unreachable from containers). Use the `o-up` alias in aliases.zsh instead — it
-# sets the var on the launchd session before restarting the service.
-# That is NOT persistent across reboot: rerun `o-up` after a boot, and confirm
-# the bind address with:  lsof -nP -iTCP -sTCP:LISTEN | grep 11434
+# This file used to `export OLLAMA_HOST=0.0.0.0:11434` on the belief that
+# containers could not otherwise reach the server. That belief was wrong under
+# OrbStack. Verified 2026-09-14 with the server bound to 127.0.0.1 ONLY (nothing
+# wildcard-bound, confirmed via lsof):
+#   * a fresh `docker run alpine` on the default bridge, with no ExtraHosts,
+#     reached http://host.docker.internal:11434/api/version
+#   * roe-devcontainer ran a full /v1/chat/completions inference through it
+#   * this host's own LAN address refused the connection
+#     (re-check with: curl "http://$(ipconfig getifaddr en0):11434/api/version")
+# OrbStack forwards host.docker.internal to the host's loopback on purpose —
+# docs.orbstack.dev/docker/network. So binding 0.0.0.0 bought nothing except
+# exposing a no-auth inference server to every device on the network.
+#
+# Note OLLAMA_HOST is dual-purpose: it is the server's bind address AND the
+# CLI's connect address. Leaving it unset points the CLI at 127.0.0.1:11434,
+# which is exactly where the server is.
+#
+# Need the wide bind anyway — Docker Desktop (its sandbox blocks host-loopback
+# access), a second machine, a VM? `o-expose` in aliases.zsh does it explicitly.
 # See SETUP.md ("Local LLM — Ollama").
-export OLLAMA_HOST=0.0.0.0:11434
+
+# --- Local model for the Pi harness ------------------------------------------
+# ONE source of truth for which Ollama model the local-agent wrappers use, so
+# changing it is a single edit rather than three that drift. Read by `pil` /
+# `piw` (agents.zsh) and by `pi-batch` (.dotfiles/bin).
+#
+# Why this tag: qwen3-coder is a Mixture-of-Experts model — 30B total but only
+# ~3.3B ACTIVE per token — so it is far quicker than a dense 27B at the prefill
+# that dominates an agentic tool loop, and it was RL-trained for agentic SWE.
+# q4_K_M (19GB) rather than q8_0 (32GB) is a memory decision, not a quality
+# preference: the dev stack alone holds ~19GB, so q8 plus the containers plus
+# macOS does not fit in 64GB without swapping. Revisit if you idle the stack.
+# It has tools + 256K context, but NO thinking and NO vision — for those, use
+# qwen3.8:27b-mtp-q4_K_M instead.
+export PI_LOCAL_MODEL="qwen3-coder:30b-a3b-q4_K_M"
 
 # --- Homebrew Bundle ---------------------------------------------------------
 # Make the dotfiles Brewfile the default target for every `brew bundle`

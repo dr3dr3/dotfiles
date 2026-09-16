@@ -65,13 +65,18 @@ exec zsh
 2. **OrbStack** — launch once to grant privileges. `docker` / `docker compose`
    then work against any devcontainer stack.
 3. **Ghostty** — set it as your default terminal (the config is already linked).
-4. *(optional)* Background Homebrew updates:
+4. **Handy** (voice dictation) — launch once, then `./scripts/setup-handy.sh`.
+   Grant **Microphone** *and* **Accessibility** in Privacy & Security (the second
+   fails silently), and download **Whisper Medium** in Handy ▸ Settings ▸ Models.
+   Leave **Auto Submit off** — it would press Return on every dictation.
+   Full runbook: [docs/HANDY.md](docs/HANDY.md).
+5. *(optional)* Background Homebrew updates:
    ```bash
    brew trust domt4/autoupdate   # tap is declared in the Brewfile; brew
                                  # won't load the command until it is trusted
    brew autoupdate start 86400 --upgrade --cleanup --enable-notification
    ```
-5. *(optional)* **Shells** — zsh is the default and the most wired-up, but Fish
+6. *(optional)* **Shells** — zsh is the default and the most wired-up, but Fish
    and Nushell carry the same host wiring (mise, 1Password agent, fzf/zoxide,
    the `dc*`/`cc`/`oll`/`clone` shortcuts). To make one the login shell:
    ```bash
@@ -147,8 +152,31 @@ These `devcontainer exec` into the project's container — nothing runs on the h
    [agents.zsh](.dotfiles/zsh/.config/zsh/agents.zsh) to match your real vault item.
 2. **Pi + local model (optional)** — Pi has no built-in permission system (the
    container is its sandbox) and reaches local models via a `models.json`, not
-   env vars. Start Ollama on the host (see below), then in the container add
-   `~/.config/pi/models.json` pointing Pi at `http://host.docker.internal:11434/v1`.
+   env vars. The file is `~/.pi/agent/models.json` **inside the container** (this
+   page previously said `~/.config/pi/models.json`, which is not where Pi looks).
+
+   Don't hand-write it — generate it from the live host, so the model list cannot
+   drift out of sync with what is actually pulled:
+   ```bash
+   ./scripts/setup-pi-ollama.sh --print            # inspect first
+   ./scripts/setup-pi-ollama.sh roe-devcontainer   # install into a container
+   ```
+   The **script runs on the host**; the **file lands in the container**, on the
+   AI volume at `~/.ai/pi/models.json` with `~/.pi/agent/models.json` symlinked
+   at it, so a `dcb` rebuild does not eat it (see
+   [docs/PERSISTENCE.md](docs/PERSISTENCE.md)).
+
+   Re-run it after any `olu` / `olrm`. Then:
+   ```bash
+   pi --provider ollama --model qwen3.8:27b-mtp-q4_K_M --thinking off
+   ```
+   See [docs/CHEATSHEET.md › Local LLM](docs/CHEATSHEET.md) for which tag to pick
+   and why the first call is slow and the rest are not.
+
+   For unattended overnight work use **`pi-batch`**, not bare `pi`: it holds the
+   Mac awake (this host sleeps after a minute idle), works on a throwaway branch
+   it cannot push, and gates on your test suite. `pi-batch-review` is the morning
+   read-out. See [docs/CHEATSHEET.md › Overnight agent runs](docs/CHEATSHEET.md).
 
 ---
 
@@ -164,16 +192,24 @@ olu qwen2.5-coder:32b          # pull a model   (olr = run, olp = ps, oll = list
 brew services stop ollama      # fully free memory when done
 ```
 
-- **Let in-container agents reach it.** Ollama binds `127.0.0.1` by default, so
-  containers can't hit `host.docker.internal`. Expose it by running the server
-  with `OLLAMA_HOST=0.0.0.0:11434` — e.g. set it for the service:
-  ```bash
-  OLLAMA_HOST=0.0.0.0:11434 brew services restart ollama
-  ```
-  This matches the `OLLAMA_HOST` the dotai devcontainer sets for the container side.
-- **Memory budget:** a 32b model is ~20GB resident in unified memory and competes
-  with the ~16GB dev stack. Models auto-unload after ~5 min idle; `olrm <model>`
-  or `brew services stop ollama` frees it immediately. Local LLM memory is not free.
+- **In-container agents already reach it — nothing to configure.** Ollama binds
+  `127.0.0.1`, and OrbStack forwards `host.docker.internal` to the host loopback,
+  so containers hit `http://host.docker.internal:11434` as-is. Verified
+  2026-09-14 from both a throwaway `docker run alpine` and the roe-devcontainer,
+  with the host's own LAN address refusing the connection.
+  This page previously said a `0.0.0.0` bind was required. It is not, and setting
+  one puts a **no-auth inference server on your LAN**. If you ever switch to
+  Docker Desktop (its sandbox blocks host-loopback access) or need another
+  machine to reach it, `o-expose` does that deliberately and `o-up` undoes it.
+- **Use the `-mlx` tags.** Ollama runs on Apple's MLX on Apple Silicon (0.19+),
+  so `qwen3.8:27b-mlx` gets the accelerated path; plain GGUF tags fall back to
+  Metal.
+- **Memory budget:** a 27B model is ~19GB resident in unified memory and competes
+  with the ~16GB dev stack. Models auto-unload after ~5 min idle
+  (`OLLAMA_KEEP_ALIVE`); `o-stop <model>` frees it immediately, and
+  `brew services stop ollama` (`o-down`) stops the server entirely.
+  ⚠️ `olrm` is `ollama rm` — that **deletes** the model from disk, it is not an
+  unload. Local LLM memory is not free.
 - Prefer the native menu-bar app instead? Swap `brew "ollama"` →
   `cask "ollama-app"` in the [Brewfile](Brewfile).
 

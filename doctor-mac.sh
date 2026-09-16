@@ -11,8 +11,10 @@
 #     error to hint at it
 #   * `brew autoupdate` could not run at all (tap untrusted), while the launchd
 #     job kept working, so nothing looked wrong
-#   * Ollama sat on 127.0.0.1 despite an exported OLLAMA_HOST, making it
-#     unreachable from containers — the exact thing the export existed to fix
+#   * a check here asserted Ollama had to bind 0.0.0.0 to serve containers. It
+#     does not under OrbStack, so the check failed on a healthy host for weeks
+#     (corrected 2026-09-14) — a reminder that an assertion is only as good as
+#     the belief behind it, and that both directions need testing
 #   * an app installer wrote a hardcoded /Users/<name>/ path into a tracked file
 #
 # None of those are catchable by linting the repo. They need assertions against
@@ -208,17 +210,38 @@ esac
 # =============================================================================
 section "Services"
 # Ollama only matters if it is running; not running is a valid state (it frees
-# memory). But running while bound to loopback is a silent trap: containers
-# cannot reach it, and an exported OLLAMA_HOST does NOT fix the launchd service.
+# memory).
+#
+# THIS CHECK USED TO BE BACKWARDS. It failed whenever Ollama was on 127.0.0.1,
+# asserting that containers could not reach it — so every `upd` reported a
+# broken host that was working fine. Verified 2026-09-14 with the server bound
+# to loopback ONLY: a fresh `docker run alpine` on the default bridge and the
+# roe-devcontainer both reached it through host.docker.internal, while this
+# host's LAN address refused. OrbStack forwards host.docker.internal to the host
+# loopback deliberately (docs.orbstack.dev/docker/network); Docker Desktop's
+# sandbox blocks that, which is the case the wide bind actually exists for.
+#
+# So loopback is now the expected, and safer, state: a wildcard bind puts a
+# no-auth inference server on the LAN. The check warns in both directions rather
+# than failing, because which one is right depends on the container engine.
 listen="$(lsof -nP -iTCP -sTCP:LISTEN 2>/dev/null | grep 11434)"
+engine="$(docker context show 2>/dev/null || echo unknown)"
 if [[ -z "$listen" ]]; then
   pass "ollama not listening (idle — fine; \`o-up\` starts it)"
 elif grep -qE '\*:11434|0\.0\.0\.0:11434' <<<"$listen"; then
-  pass "ollama bound to all interfaces — reachable from containers"
+  if [[ "$engine" == "orbstack" ]]; then
+    warn "ollama is bound to ALL interfaces — unnecessary under OrbStack"
+    hint "containers reach a loopback-bound server via host.docker.internal already"
+    hint "this exposes a no-auth inference server to the LAN; \`o-up\` rebinds to loopback"
+  else
+    pass "ollama bound to all interfaces (docker context: $engine — wide bind needed)"
+  fi
+elif [[ "$engine" == "orbstack" ]]; then
+  pass "ollama on loopback — OrbStack containers reach it via host.docker.internal"
 else
-  fail "ollama bound to loopback only — containers CANNOT reach it"
-  hint "$(awk '{print $1, $9}' <<<"$listen" | head -1)"
-  hint "run \`o-up\` (exported OLLAMA_HOST does not reach the launchd service)"
+  warn "ollama on loopback, but docker context is '$engine', not orbstack"
+  hint "only OrbStack forwards host.docker.internal to the host loopback"
+  hint "if containers cannot reach it, run \`o-expose\` (binds 0.0.0.0 — LAN-visible)"
 fi
 
 if brew autoupdate status >/dev/null 2>&1; then
@@ -228,6 +251,211 @@ else
   hint "brew trust domt4/autoupdate   # required before the command loads"
 fi
 
+# =============================================================================
+section "Handy dictation profile"
+# Handy's settings are NOT stowed (its Application Support dir also holds model
+# weights, WAV recordings and transcript history — see docs/HANDY.md), so no
+# stow-link check can cover them. They are merged into the live JSON by
+# scripts/setup-handy.sh, which means the UI can drift away from the repo
+# silently: every one of these is a toggle a stray click can flip.
+#
+# The one that matters most is auto_submit. It appends Return to every
+# transcript, so with it on, dictating into a terminal RUNS what Whisper heard.
+# That is a failure you want caught here, not discovered.
+HANDY_SETTINGS="$HOME/Library/Application Support/com.pais.handy/settings_store.json"
+if [[ ! -e "/Applications/Handy.app" && ! -e "$HOME/Applications/Handy.app" ]]; then
+  fail "Handy.app missing — declared as cask \"handy\" in the Brewfile"
+  hint "brew bundle --file=$REPO_DIR/Brewfile"
+elif [[ ! -f "$HANDY_SETTINGS" ]]; then
+  warn "Handy installed but never launched (no settings store yet)"
+  hint "open -a Handy, then: ./scripts/setup-handy.sh"
+else
+  # One python pass reports every managed key; the shell just grades it. Keys are
+  # compared against the same values scripts/setup-handy.sh writes.
+  handy_report="$(/usr/bin/python3 - "$HANDY_SETTINGS" "$REPO_DIR/config/handy/vocabulary.txt" <<'PY' 2>/dev/null
+import json, sys
+
+EXPECTED_SCHEMA = 2
+WANT = {
+    "auto_submit": False,            # safety-critical: appends Return
+    "post_process_enabled": False,   # the only off-box network path
+    "push_to_talk": True,
+    "selected_language": "en",
+    "translate_to_english": False,
+    "paste_method": "ctrl_v",        # the path that restores the clipboard
+    "clipboard_handling": "dont_modify",
+    "recording_retention_period": "preserve_limit",
+    "history_limit": 0,              # with the line above: prune every recording
+}
+
+try:
+    settings = json.load(open(sys.argv[1], encoding="utf-8"))["settings"]
+except Exception as exc:
+    print("UNREADABLE %s" % exc)
+    raise SystemExit(0)
+
+schema = settings.get("settings_schema_version")
+print("SCHEMA %s %s" % (schema, EXPECTED_SCHEMA))
+if schema != EXPECTED_SCHEMA:
+    raise SystemExit(0)   # every assertion below is schema-specific
+
+for key, want in WANT.items():
+    got = settings.get(key, "<absent>")
+    print("%s %s %s %s" % ("OK" if got == want else "DRIFT", key,
+                           json.dumps(got), json.dumps(want)))
+
+binding = settings.get("bindings", {}).get("transcribe", {}).get(
+    "current_binding", "<absent>")
+print("%s %s %s %s" % ("OK" if binding == "fn" else "DRIFT",
+                       "bindings.transcribe.current_binding",
+                       json.dumps(binding), json.dumps("fn")))
+
+print("MODEL %s" % (settings.get("selected_model") or "<none>"))
+
+# Compare case-insensitively, the way Handy matches, but report the canonical
+# casing from the vocabulary file — that is what you have to look for.
+# NOTE: no apostrophes anywhere in this heredoc. It sits inside a double-quoted
+# $( ... ), and bash mis-parses a lone quote character in that position even
+# though the heredoc delimiter is quoted. Cost 10 minutes once.
+vocab = {}
+for line in open(sys.argv[2], encoding="utf-8"):
+    term = line.split("#", 1)[0].strip()
+    if term:
+        vocab[term.lower()] = term
+live = {w.strip().lower() for w in settings.get("custom_words", []) if isinstance(w, str)}
+missing = sorted((vocab[k] for k in vocab if k not in live), key=str.lower)
+print("VOCAB %d %d %s" % (len(vocab), len(live), ",".join(missing)))
+PY
+)"
+
+  if [[ -z "$handy_report" ]]; then
+    fail "could not read Handy's settings store"
+    hint "$HANDY_SETTINGS"
+  elif [[ "$handy_report" == UNREADABLE* ]]; then
+    fail "Handy's settings store is unparseable — ${handy_report#UNREADABLE }"
+    hint "restore one of: $HANDY_SETTINGS.bak.*"
+  else
+    schema_line="$(grep '^SCHEMA ' <<<"$handy_report")"
+    read -r _ have_schema want_schema <<<"$schema_line"
+    if [[ "$have_schema" != "$want_schema" ]]; then
+      warn "Handy settings schema is $have_schema, this repo verified $want_schema"
+      hint "settings assertions skipped; re-verify scripts/setup-handy.sh — docs/HANDY.md"
+    else
+      while read -r status key got want; do
+        case "$status" in
+          OK)    pass "$key = $got" ;;
+          DRIFT)
+            if [[ "$key" == "auto_submit" ]]; then
+              fail "Auto Submit is ON ($got) — dictation would RUN what it hears in a terminal"
+              hint "turn it off in Handy ▸ Settings, or run ./scripts/setup-handy.sh"
+            else
+              fail "$key = $got, repo declares $want"
+              hint "./scripts/setup-handy.sh"
+            fi
+            ;;
+        esac
+      done < <(grep -E '^(OK|DRIFT) ' <<<"$handy_report")
+
+      model="$(sed -n 's/^MODEL //p' <<<"$handy_report")"
+      if [[ "$model" == "<none>" ]]; then
+        warn "no transcription model selected — Handy cannot transcribe yet"
+        hint "Handy ▸ Settings ▸ Models ▸ Whisper Medium (docs/HANDY.md)"
+      else
+        pass "model selected ($model)"
+      fi
+
+      read -r _ vocab_count live_count vocab_missing < <(grep '^VOCAB ' <<<"$handy_report")
+      if [[ -n "${vocab_missing:-}" ]]; then
+        warn "vocabulary drift — ${vocab_missing//,/, } not in Handy's word list"
+        hint "./scripts/setup-handy.sh   (merges config/handy/vocabulary.txt)"
+      else
+        pass "all $vocab_count vocabulary term(s) present (Handy has $live_count)"
+      fi
+    fi
+  fi
+fi
+
+# Symbolic hotkey 164 is macOS Dictation's double-Fn/Globe trigger. Handy owns
+# that physical key for hold-to-talk, so leaving 164 enabled produces competing
+# behaviour on a quick double press.
+dictation_hotkey_enabled="$(
+  /usr/bin/defaults export com.apple.symbolichotkeys - 2>/dev/null |
+    /usr/bin/plutil -extract 'AppleSymbolicHotKeys.164.enabled' raw -o - - 2>/dev/null
+)"
+case "$dictation_hotkey_enabled" in
+  false) pass "macOS double-Fn Dictation shortcut is disabled" ;;
+  true)
+    fail "macOS double-Fn Dictation shortcut competes with Handy's Fn binding"
+    hint "System Settings ▸ Keyboard ▸ Dictation — change the Dictation shortcut"
+    ;;
+  *) warn "could not determine the macOS double-Fn Dictation shortcut state" ;;
+esac
+
+
+# =============================================================================
+section "Overnight agent runs (pi-batch)"
+# Two different silent failures live here.
+#
+# The first is work you never look at: an unattended run leaves a branch, and a
+# branch nobody reviews is indistinguishable from one that was never created.
+# "Outstanding" is defined as "the branch still exists" — deleting or merging it
+# IS the review, so there is no separate flag to drift out of sync.
+#
+# The second cost a real outage on 2026-09-16. dotai symlinks the whole
+# ~/.pi/agent directory onto the AI volume, so scripts/setup-pi-ollama.sh
+# resolved the file and its "persistent" target to the SAME path and linked it
+# to itself. Pi then failed with ELOOP and lost every provider — including the
+# hosted ones it did not manage. The script now refuses to do that; this asserts
+# the live result, because a config Pi cannot parse is invisible until you run
+# an agent and it says "Unknown provider".
+PI_STATE_DIR="${PI_BATCH_LOG_DIR:-$HOME/.local/state/pi-batch}"
+if [[ -d "$PI_STATE_DIR" ]] && ls "$PI_STATE_DIR"/*.json >/dev/null 2>&1; then
+  pi_out=0; pi_fail=0; pi_old=0; pi_total=0
+  cutoff=$(( $(date +%s) - ${PI_BATCH_RETENTION_DAYS:-30}*86400 ))
+  for rec in "$PI_STATE_DIR"/*.json; do
+    pi_total=$((pi_total+1))
+    read -r st cont wd br vd < <(/usr/bin/python3 -c '
+import json,sys
+d=json.load(open(sys.argv[1]))
+print(d["stamp"], d["container"], d["workdir"], d["batch_branch"], d["verdict"].split()[0])' "$rec" 2>/dev/null) || continue
+    [[ "$vd" == "FAIL" ]] && pi_fail=$((pi_fail+1))
+    ts=$(date -j -f "%Y%m%d-%H%M%S" "$st" +%s 2>/dev/null || echo 0)
+    [[ "$ts" -ne 0 && "$ts" -lt "$cutoff" ]] && pi_old=$((pi_old+1))
+    if docker inspect "$cont" >/dev/null 2>&1 &&
+       docker exec -w "$wd" "$cont" git rev-parse --verify --quiet "refs/heads/$br" >/dev/null 2>&1; then
+      pi_out=$((pi_out+1))
+    fi
+  done
+  if [[ $pi_out -gt 0 ]]; then
+    warn "$pi_out of $pi_total agent run(s) unreviewed — their branches still exist"
+    hint "pi-batch-review        # what they did"
+  else
+    pass "no unreviewed agent runs ($pi_total recorded)"
+  fi
+  [[ $pi_fail -gt 0 ]] && { warn "$pi_fail run(s) ended with failing tests"; hint "pi-batch-review --failed"; }
+  [[ $pi_old  -gt 0 ]] && { warn "$pi_old record(s) past the retention window"; hint "pi-batch-review --prune"; }
+else
+  pass "no pi-batch runs recorded yet"
+fi
+
+# Pi's provider config must actually load. Check every running container that
+# has one, since a broken link is silent until an agent run fails.
+for c in $(docker ps --format '{{.Names}}' 2>/dev/null); do
+  cfg="$(docker exec "$c" sh -lc 'echo $HOME/.pi/agent/models.json' 2>/dev/null | tr -d '\r')"
+  [[ -n "$cfg" ]] || continue
+  # -e FOLLOWS the link and is FALSE on a loop, which would skip the very state
+  # this check exists for — the first version of this check did exactly that and
+  # stayed silent through a broken config. -L catches a link that cannot resolve.
+  docker exec "$c" sh -lc "[ -e '$cfg' ] || [ -L '$cfg' ]" 2>/dev/null || continue
+  if docker exec "$c" sh -lc "python3 -c 'import json,sys; json.load(open(sys.argv[1]))' '$cfg'" >/dev/null 2>&1; then
+    n="$(docker exec "$c" sh -lc "python3 -c 'import json,sys; print(len(json.load(open(sys.argv[1])).get(\"providers\",{})))' '$cfg'" 2>/dev/null | tr -d '\r')"
+    pass "$c — Pi config loads (${n:-?} provider(s))"
+  else
+    fail "$c — Pi's models.json does NOT parse (a self-referential symlink does this)"
+    hint "ls -l \$HOME/.pi/agent/models.json inside the container; restore a .bak.* beside it"
+    hint "then re-run: ./scripts/setup-pi-ollama.sh $c"
+  fi
+done
 # =============================================================================
 printf '\n\033[1m%s\033[0m\n' "───────────────────────────────────────────────"
 printf '  \033[1;32m%d passed\033[0m · \033[1;33m%d warning(s)\033[0m · \033[1;31m%d failure(s)\033[0m\n' \

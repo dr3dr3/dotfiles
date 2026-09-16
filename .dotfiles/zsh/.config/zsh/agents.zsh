@@ -35,3 +35,22 @@ cx() { _dcx codex "$@"; }
 # Ollama runs natively on the host; from inside the container Pi reaches it at
 # host.docker.internal:11434 (OrbStack maps it). dotai sets OLLAMA_HOST for this.
 pi() { _dcx pi "$@"; }
+
+# --- Pi on the LOCAL model (host Ollama) -------------------------------------
+# `pi --list-models` shows the local Ollama models and the hosted gateway models
+# in ONE flat list, with nothing marking which is which. `pil` is the local path
+# your fingers learn, so a billed gateway model is never one tab-complete away.
+# --thinking off maps to reasoning_effort=none (verified: zero reasoning tokens)
+# and is the right default for tool-heavy turns.
+pil() { _dcx pi --provider ollama --model "$PI_LOCAL_MODEL" --thinking off "$@"; }
+
+# Preload the model so the first real turn does not pay the cold load. Worth it
+# before a batch; pointless otherwise (it unloads again after OLLAMA_KEEP_ALIVE).
+piw() {
+  printf 'warming %s… ' "$PI_LOCAL_MODEL"
+  curl -fsS http://127.0.0.1:11434/api/generate \
+    -d "{\"model\":\"$PI_LOCAL_MODEL\",\"prompt\":\"hi\",\"stream\":false}" \
+    >/dev/null && echo "resident (olp to confirm)" || echo "FAILED — is ollama up?"
+}
+# Unattended batches run through `pi-batch` (.dotfiles/bin), not an alias here:
+# it needs caffeinate, an isolated branch, a refuse-to-push hook and a test gate.

@@ -1,0 +1,44 @@
+# =============================================================================
+# vocabulary.txt — developer terms Handy should spell correctly.
+#
+# Handy's `custom_words` is a POST-transcription corrector, not a hint to the
+# model: after Whisper produces text, Handy walks 1-, 2- and 3-word n-grams and
+# replaces any that fuzzily match a term below (soundex + Levenshtein, gated on
+# `word_correction_threshold`, default 0.18). Punctuation and case are stripped
+# before matching, so "charge bee" → "ChargeBee" and "dev container" →
+# "devcontainer". Case is taken from THIS file, which is why every term is
+# written in its canonical casing.
+#
+# Applied by ../../scripts/setup-handy.sh, which merges these into
+# settings_store.json › custom_words as a UNION — terms you add in Handy's own
+# Settings ▸ Words pane survive; this file only ever adds.
+# Re-run after editing:  ./scripts/setup-handy.sh
+#
+# Format: one term per line. Blank lines and #-comments ignored. Order here is
+# irrelevant (the script sorts), so group by theme for humans.
+#
+# ⚠️ Keep this list tight. Every term is a chance to fuzzily REWRITE a correctly
+# transcribed word into something else — the matcher has no notion of context.
+# Short or common-sounding terms are the risky ones: a 2-3 letter term will
+# collide with ordinary speech. Add a term when you have actually watched Handy
+# get it wrong, not pre-emptively.
+# =============================================================================
+
+# --- This stack's proper nouns ----------------------------------------------
+Herdr
+Codex
+Ghostty
+Firstmate
+
+# --- Containers --------------------------------------------------------------
+devcontainer
+Docker
+OrbStack
+
+# --- Languages, frameworks, datastores ---------------------------------------
+Laravel
+TypeScript
+PostgreSQL
+
+# --- Services ----------------------------------------------------------------
+GitHub

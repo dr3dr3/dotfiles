@@ -74,20 +74,45 @@ def --wrapped cca [...rest] { devcontainer exec --workspace-folder . env TERM=xt
 alias cc = ccp
 def --wrapped cx [...rest] { devcontainer exec --workspace-folder . env TERM=xterm-256color codex ...$rest }
 def --wrapped pi [...rest] { devcontainer exec --workspace-folder . env TERM=xterm-256color pi ...$rest }
+# `pi --list-models` shows local Ollama models and hosted gateway models in ONE
+# flat list with nothing marking which is which. `pil` is the local path your
+# fingers learn, so a billed gateway model is never one tab-complete away.
+# --thinking off maps to reasoning_effort=none (verified: zero reasoning tokens).
+# Unattended batches use `pi-batch` (.dotfiles/bin) — it needs caffeinate, an
+# isolated branch, a refuse-to-push hook and a test gate, not a one-liner.
+def --wrapped pil [...rest] {
+  devcontainer exec --workspace-folder . env TERM=xterm-256color pi --provider ollama --model $env.PI_LOCAL_MODEL --thinking off ...$rest
+}
+def piw [] {
+  print $"warming ($env.PI_LOCAL_MODEL)…"
+  let body = {model: $env.PI_LOCAL_MODEL, prompt: "hi", stream: false} | to json
+  try { http post --content-type application/json http://127.0.0.1:11434/api/generate $body | ignore; print "resident (olp to confirm)" } catch { print "FAILED — is ollama up?" }
+}
 
 # Ollama (host-native; fallback only)
 alias oll = ollama list
 alias olp = ollama ps
 def --wrapped olr [...rest] { ollama run ...$rest }
 def --wrapped olu [...rest] { ollama pull ...$rest }
-def --wrapped olrm [...rest] { ollama rm ...$rest }
-# Server lifecycle (brew formula): o-up binds 0.0.0.0:11434 so in-container
-# agents reach it via host.docker.internal; o-down stops it and frees memory.
-# NB: brew generates the LaunchAgent plist from the formula and ignores a
-# shell-exported OLLAMA_HOST, so we set it via launchctl (the launchd-spawned
-# server inherits it). Not persistent across reboot — rerun o-up after a boot.
-def o-up [] { launchctl setenv OLLAMA_HOST "0.0.0.0:11434"; brew services restart ollama }
+def --wrapped olrm [...rest] { ollama rm ...$rest }   # DELETE from disk (unload is o-stop)
+# Server lifecycle (brew formula). o-up starts it on Ollama's default
+# 127.0.0.1 bind, which OrbStack containers CAN reach via host.docker.internal
+# (verified 2026-09-14; see env.zsh for the evidence). o-down stops it and frees
+# memory. o-stop unloads the model but leaves the server up.
+#
+# o-expose is the escape hatch, NOT the default: it rebinds to 0.0.0.0 for
+# Docker Desktop (its sandbox blocks host-loopback access), another machine, or
+# a VM. That puts a no-auth inference server on your LAN — only while you need
+# it, and `o-up` puts it back. It uses launchctl because brew generates the
+# LaunchAgent plist from the formula and ignores a shell-exported OLLAMA_HOST
+# (verified 2026-09-03). Neither setting survives a reboot.
+def o-up [] { launchctl unsetenv OLLAMA_HOST; brew services restart ollama }
 alias o-down = brew services stop ollama
+def --wrapped o-stop [...rest] { ollama stop ...$rest }
+def o-expose [] { launchctl setenv OLLAMA_HOST "0.0.0.0:11434"; brew services restart ollama }
+# Overnight: keep the model resident between agent turns; o-day gives it back.
+def o-night [] { launchctl setenv OLLAMA_KEEP_ALIVE "12h"; brew services restart ollama }
+def o-day [] { launchctl unsetenv OLLAMA_KEEP_ALIVE; brew services restart ollama }
 
 # JIT editor — always the multi-root workspace, never `code .`
 def --wrapped roe [...rest] {
@@ -113,6 +138,21 @@ def --env cdc [repo?: string] { cd ($env.CODE_DIR | path join ($repo | default "
 # Default Brewfile for every `brew bundle` subcommand, from any directory.
 # Lookup order: --file flag > this var > ./Brewfile (so a per-project Brewfile
 # elsewhere needs an explicit --file). The *-mac.sh scripts pass --file already.
+# --- Local model for the Pi harness ------------------------------------------
+# ONE source of truth for which Ollama model the local-agent wrappers use, so
+# changing it is a single edit rather than three that drift. Read by `pil` /
+# `piw` (agents.zsh) and by `pi-batch` (.dotfiles/bin).
+#
+# Why this tag: qwen3-coder is a Mixture-of-Experts model — 30B total but only
+# ~3.3B ACTIVE per token — so it is far quicker than a dense 27B at the prefill
+# that dominates an agentic tool loop, and it was RL-trained for agentic SWE.
+# q4_K_M (19GB) rather than q8_0 (32GB) is a memory decision, not a quality
+# preference: the dev stack alone holds ~19GB, so q8 plus the containers plus
+# macOS does not fit in 64GB without swapping. Revisit if you idle the stack.
+# It has tools + 256K context, but NO thinking and NO vision — for those, use
+# qwen3.8:27b-mtp-q4_K_M instead.
+$env.PI_LOCAL_MODEL = "qwen3-coder:30b-a3b-q4_K_M"
+
 $env.HOMEBREW_BUNDLE_FILE = ($env.HOME | path join "Code/dr3dr3/dotfiles/Brewfile")
 def upd [...rest] { ^($env.HOME | path join "Code/dr3dr3/dotfiles/update-mac.sh") ...$rest }
 # Scratch-file snapshot only — never dump over the tracked Brewfile (--force
