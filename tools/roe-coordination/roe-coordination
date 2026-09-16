@@ -17,7 +17,13 @@ import time
 
 SETTINGS = Path(os.environ.get('XDG_CONFIG_HOME', str(Path.home() / '.config'))) / 'roe-coordination/config.json'
 # Read-only/local tooling targets. Unknown goals require the runtime deliberately.
-READ = set('help help-all doctor usage-show usage-flush git-status git-branches pr-status pr-merged worktree-status autoload-check wt-config test-tooling lint-workflows check-env-duplicates check-sns-endpoints codegraph-status codegraph-query codegraph-path codegraph-affected codegraph-explain release-status staging-drift logs logs-api logs-sso logs-pms logs-production-core logs-frontend port-forward-status aws-status break-glass-status review-rules-check review-rules-sync'.split())
+# port-forward/-stop/-status are one socat wrapper over the SAME script and are
+# local to this container: they bind localhost and pipe to container ports, and
+# are none of the four things policy.md names as needing a reservation (staging,
+# service lifecycle, shared dependencies, stateful validation). Only -status was
+# listed, so `make port-forward` was refused while its own status target was
+# allowed — and agent-browser/Playwright cannot reach anything without it.
+READ = set('help help-all doctor usage-show usage-flush git-status git-branches pr-status pr-merged worktree-status autoload-check wt-config test-tooling lint-workflows check-env-duplicates check-sns-endpoints codegraph-status codegraph-query codegraph-path codegraph-affected codegraph-explain release-status staging-drift logs logs-api logs-sso logs-pms logs-production-core logs-frontend port-forward port-forward-stop port-forward-status aws-status break-glass-status review-rules-check review-rules-sync'.split())
 
 
 def fail(message):

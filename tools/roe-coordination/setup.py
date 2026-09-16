@@ -46,8 +46,23 @@ def main():
         settings=Path(os.environ.get('XDG_CONFIG_HOME', str(args.user_home/'.config')))/'roe-coordination/config.json'
         install=args.user_home/'.local/bin'
         executable=install/'roe-coordination'
+        # The guard runs from an INSTALLED COPY, not from this checkout.
+        #
+        # dotfiles is a stow repo: 17 symlinks point into its working tree so an
+        # edit takes effect immediately, which is exactly what you want for a
+        # prompt or an alias. It is exactly what you do NOT want for the guard
+        # that every `make` executes — it made the guard follow whatever branch
+        # happened to be checked out, and run half-saved files mid-edit. Copying
+        # it here means the guard changes only when you deliberately re-run
+        # `setup.py enable`, while the rest of dotfiles stays live.
+        libdir=args.user_home/'.local/lib/roe-coordination'
+        installed=libdir/'roe-coordination'
+        source=HERE/'roe-coordination'
+        # The pre-copy layout pointed provider straight at the checkout. Accept
+        # it as ours so an upgrade rewrites it instead of refusing.
+        ours={str(installed),str(source)}
         existing=json.loads(destination.read_text()) if destination.exists() else None
-        if existing and existing.get('provider') != str(HERE/'roe-coordination'):
+        if existing and existing.get('provider') not in ours:
             raise RuntimeError('Existing provider belongs to another installation; refusing to overwrite')
         if settings.exists() and json.loads(settings.read_text()).get('config') != str(destination):
             raise RuntimeError('This personal installation already targets a different stack')
@@ -66,19 +81,35 @@ def main():
                 raise RuntimeError('Cannot reconfigure while the runtime is reserved')
             for target in [executable]:
                 if target.exists() or target.is_symlink():
-                    expected=HERE/'roe-coordination'
-                    if not target.is_symlink() or target.resolve()!=expected:
+                    if not target.is_symlink() or target.resolve() not in {installed,source}:
                         raise RuntimeError('Refusing to overwrite unmanaged executable: '+str(target))
+            if installed.exists() and not installed.is_file():
+                raise RuntimeError('Refusing to overwrite a non-file at '+str(installed))
             # Validate managed blocks before changing any destination.
             for doc in docs:
                 old=doc.read_text() if doc.exists() else ''
                 if (BEGIN in old)!=(END in old):
                     raise RuntimeError('Incomplete managed instruction block: '+str(doc))
-            config=dict(version=1,root=str(root),provider=str(HERE/'roe-coordination'),state=str(common/'roe-runtime-state'),homes=homes)
+                # ...and that we can actually write them. A retired Firstmate home
+                # leaves data/captain-shared.md mode 444, which used to fail LATE:
+                # the copy was installed and the bin symlink repointed, then the
+                # write raised and the activation was never published. Nothing was
+                # corrupted (publishing is deliberately last) but the install was
+                # left half-applied. Fail here instead, before anything moves.
+                target=doc if doc.exists() else doc.parent
+                while not target.exists() and target != target.parent: target=target.parent
+                if not os.access(target, os.W_OK):
+                    raise RuntimeError('Not writable, refusing a partial install: '+str(doc))
+            config=dict(version=1,root=str(root),provider=str(installed),state=str(common/'roe-runtime-state'),homes=homes)
+            # Copy atomically: a guard read mid-write must never see a partial
+            # file, since runtime-guard.sh execs it on every make invocation.
+            libdir.mkdir(parents=True,exist_ok=True)
+            staged=installed.with_suffix('.tmp')
+            staged.write_bytes(source.read_bytes());os.chmod(staged,0o755);os.replace(staged,installed)
             install.mkdir(parents=True,exist_ok=True)
-            for name in ['roe-coordination']:
-                dest=install/name
-                if not dest.is_symlink(): dest.symlink_to(HERE/name)
+            # Repoint an older checkout-symlink at the installed copy.
+            if executable.is_symlink() or executable.exists(): executable.unlink()
+            executable.symlink_to(installed)
             # Migrate the earlier optional reminder wrapper; never remove an unmanaged command.
             legacy=install/'roe-agent'
             if legacy.is_symlink() and legacy.resolve()==HERE/'roe-agent':
@@ -101,7 +132,10 @@ def main():
             settings.unlink(missing_ok=True)
             for name in ['roe-coordination','roe-agent']:
                 dest=install/name
-                if dest.is_symlink() and dest.resolve()==HERE/name: dest.unlink()
+                if dest.is_symlink() and dest.resolve() in {installed,HERE/name}: dest.unlink()
+            # Remove the installed copy, and the directory when it owns nothing else.
+            installed.unlink(missing_ok=True)
+            if libdir.is_dir() and not any(libdir.iterdir()): libdir.rmdir()
             print('Disabled personal coordination; unrelated configuration preserved')
 
 

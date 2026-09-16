@@ -198,6 +198,70 @@ assert Path('repos/demo/app.txt').read_text()=='original'
         self.enable()
         self.assertEqual(legacy.read_text(),'An unrelated personal command')
 
+    # --- the guard runs from an installed copy, not from the checkout --------
+
+    def installed_paths(self):
+        lib = self.home/'.local/lib/roe-coordination/roe-coordination'
+        return lib, self.home/'.local/bin/roe-coordination'
+
+    def test_provider_is_an_installed_copy_not_the_checkout(self):
+        self.enable()
+        lib, binlink = self.installed_paths()
+        provider = Path(json.loads(self.cfg.read_text())['provider'])
+        self.assertEqual(provider, lib)
+        self.assertTrue(lib.is_file() and not lib.is_symlink(), 'the guard must be a real copy')
+        self.assertEqual(lib.read_bytes(), TOOL.read_bytes())
+        self.assertTrue(os.access(lib, os.X_OK))
+        self.assertEqual(binlink.resolve(), lib, 'the CLI must be the same build as the guard')
+
+    def test_editing_the_checkout_does_not_change_the_guard(self):
+        """The whole point: dotfiles is stow-linked, so the tree is live. The
+        guard must move only when enable is deliberately re-run."""
+        checkout = self.base/'checkout'
+        shutil.copytree(SOURCE/'tools/roe-coordination', checkout)
+        self.call('python3', checkout/'setup.py', 'enable', '--root', self.root, '--firstmate-home', self.fm)
+        lib, _ = self.installed_paths()
+        before = lib.read_bytes()
+
+        (checkout/'roe-coordination').write_text('#!/usr/bin/env python3\nraise SystemExit("edited in the tree")\n')
+        self.assertEqual(lib.read_bytes(), before, 'a tree edit leaked into the running guard')
+
+        self.call('python3', checkout/'setup.py', 'enable', '--root', self.root, '--firstmate-home', self.fm)
+        self.assertIn('edited in the tree', lib.read_text(), 're-running enable must pick the edit up')
+
+    def test_disable_removes_the_installed_copy(self):
+        self.enable()
+        lib, binlink = self.installed_paths()
+        self.assertTrue(lib.exists())
+        self.call('python3', SETUP, 'disable', '--root', self.root)
+        self.assertFalse(lib.exists())
+        self.assertFalse(lib.parent.exists(), 'the lib directory should not be left behind empty')
+        self.assertFalse(binlink.is_symlink())
+
+    def test_provider_from_the_older_checkout_layout_is_migrated(self):
+        """Installs predating the copy pointed provider at the checkout itself."""
+        self.cfg.parent.mkdir(parents=True, exist_ok=True)
+        self.cfg.write_text(json.dumps(dict(version=1, root=str(self.root),
+                                            provider=str(TOOL), state=str(self.state), homes=[str(self.fm)])))
+        binlink = self.home/'.local/bin/roe-coordination'
+        binlink.parent.mkdir(parents=True, exist_ok=True)
+        binlink.symlink_to(TOOL)
+        self.enable()
+        lib, _ = self.installed_paths()
+        self.assertEqual(Path(json.loads(self.cfg.read_text())['provider']), lib)
+        self.assertEqual(binlink.resolve(), lib, 'the old checkout symlink must be repointed')
+
+    def test_unwritable_managed_doc_refuses_before_installing_anything(self):
+        """A retired Firstmate home leaves captain-shared.md mode 444."""
+        doc = self.fm/'data/captain-shared.md'
+        doc.write_text('shared\n'); doc.chmod(0o444)
+        self.addCleanup(doc.chmod, 0o644)
+        r = self.call('python3', SETUP, 'enable', '--root', self.root, '--firstmate-home', self.fm, ok=False)
+        self.assertIn('Not writable', r.stderr + r.stdout)
+        lib, binlink = self.installed_paths()
+        self.assertFalse(lib.exists(), 'refused, so nothing should have been installed')
+        self.assertFalse(binlink.is_symlink())
+        self.assertFalse(self.cfg.exists(), 'activation must not be published')
 
 
 if __name__=='__main__':unittest.main()
