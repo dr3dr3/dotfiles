@@ -165,7 +165,8 @@ Linux-only or because the tool's directory is full of runtime state.
 
 ```
 config/
-  keyd/        → Omarchy/Linux Caps Lock remap (applied by scripts/setup-herdr-capslock-linux.sh)
+  keyd/        → Omarchy/Linux keyd fragments: Caps Lock remap (scripts/setup-herdr-capslock-linux.sh)
+                 and MX mouse buttons (scripts/setup-logitech-mice-linux.sh, see docs/LOGITECH-MICE.md)
   handy/       → developer vocabulary for voice dictation
                ↳ merged INTO ~/Library/Application Support/com.pais.handy/ by
                  scripts/setup-handy.sh. That directory is never stowed: it also
