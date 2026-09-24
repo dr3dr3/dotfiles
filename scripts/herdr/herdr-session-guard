@@ -1,0 +1,110 @@
+#!/usr/bin/env python3
+"""herdr-session-guard — put back a session.json that a clean shutdown emptied.
+
+Herdr persists the layout by re-saving ~/.config/herdr/session.json after every
+pane exit. That is harmless while you work, and destructive exactly once: during
+a GRACEFUL shutdown, where the panes exit one by one and each exit rewrites the
+file a little smaller. The last write wins and it describes an empty workspace,
+so the next `persist.restore` faithfully restores nothing.
+
+Observed on 0.9.0, 2026-09-23. The asymmetry is worth internalising because it
+is the opposite of the intuition:
+
+    hard kill  (docker kill, OOM, power)  -> session.json intact, full restore
+    clean stop (reboot, `herdr server stop`) -> session.json emptied, 1 pane back
+
+`devrebuild` step 3 stops the server "so session.json is complete, not
+mid-write" — which is the right instinct against a torn write, and the wrong one
+against this. Both are handled by taking a copy FIRST; that copy is the sidecar
+written by herdr-snapshot.
+
+This runs at container start, BEFORE anything attaches (the attach is what
+starts the server and triggers the restore), and only acts on the unambiguous
+signature: a live file with at most one pane, next to a recent sidecar with
+several. Anything less clear-cut it leaves alone and explains.
+
+    herdr-session-guard              # apply if warranted
+    herdr-session-guard --dry-run
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import shutil
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+CFG = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "herdr"
+LIVE = CFG / "session.json"
+SNAPS = CFG / "snapshots"
+MAX_AGE_H = float(os.environ.get("HERDR_GUARD_MAX_AGE_HOURS", "48"))
+
+
+def pane_count(path: Path) -> int | None:
+    try:
+        d = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return None
+    return sum(len(t.get("panes", {})) for w in d.get("workspaces", []) for t in w.get("tabs", []))
+
+
+def server_running() -> bool:
+    try:
+        out = subprocess.run(["herdr", "status"], capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return "status: running" in out.stdout
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--dry-run", action="store_true")
+    a = ap.parse_args()
+
+    if server_running():
+        print("guard: herdr server is already running — restoring under it would be ignored; nothing done")
+        return 0
+
+    sidecars = sorted(SNAPS.glob("*.session.json"), reverse=True)
+    if not sidecars:
+        print("guard: no session sidecar yet (herdr-autosnap writes one) — nothing to restore from")
+        return 0
+    best = sidecars[0]
+
+    age_h = (time.time() - best.stat().st_mtime) / 3600
+    live_n, snap_n = pane_count(LIVE), pane_count(best)
+
+    if snap_n is None or snap_n < 2:
+        print(f"guard: newest sidecar {best.name} has {snap_n} panes — not worth restoring")
+        return 0
+    if age_h > MAX_AGE_H:
+        print(f"guard: newest sidecar is {age_h:.1f}h old (limit {MAX_AGE_H:.0f}h) — too stale to restore blind")
+        return 0
+    if live_n is None:
+        print(f"guard: {LIVE} missing or unreadable — restoring {best.name} ({snap_n} panes)")
+    elif live_n > 1:
+        print(f"guard: live session.json has {live_n} panes — looks intact, leaving it")
+        return 0
+    else:
+        print(f"guard: live session.json has {live_n} pane(s), sidecar {best.name} has {snap_n} "
+              f"({age_h:.1f}h old) — a clean shutdown emptied it")
+
+    if a.dry_run:
+        print(f"guard: would restore {best} -> {LIVE}")
+        return 0
+
+    if LIVE.exists():
+        keep = LIVE.with_suffix(f".gutted.{time.strftime('%Y%m%d%H%M%S')}.json")
+        shutil.copy2(LIVE, keep)
+        print(f"guard: kept the emptied file at {keep.name}")
+    shutil.copy2(best, LIVE)
+    print(f"guard: restored {best.name} -> session.json ({snap_n} panes). "
+          "Attach with `herdr` and it will rebuild them and resume the agents.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
