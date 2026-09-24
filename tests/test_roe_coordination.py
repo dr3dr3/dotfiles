@@ -36,7 +36,7 @@ class CoordinationTest(unittest.TestCase):
             header = (UMBRELLA / 'Makefile').read_text().split('# Optional runtime coordination,',1)[1].split('# Load .env',1)[0]
         else:
             header = ''
-        (self.root / 'Makefile').write_text('# Optional runtime coordination,' + header + '\nhelp:\n\t@echo help\nrestart:\n\t@touch MUTATED\n')
+        (self.root / 'Makefile').write_text('# Optional runtime coordination,' + header + '\nhelp:\n\t@echo help\ncodegraph-refresh:\n\t@echo refreshed\nrestart:\n\t@touch MUTATED\n')
         self.cfg = self.root / '.git/roe-runtime.json'
         self.state = self.root / '.git/roe-runtime-state'
 
@@ -68,6 +68,7 @@ class CoordinationTest(unittest.TestCase):
     def test_make_blocks_before_side_effects_and_allows_help(self):
         self.enable()
         self.call('make','help')
+        self.call('make','codegraph-refresh')
         self.call('make','restart',ok=False)
         self.assertFalse((self.root/'MUTATED').exists())
         self.call(*self.command("import subprocess; subprocess.run(['make','restart'],check=True)"))
