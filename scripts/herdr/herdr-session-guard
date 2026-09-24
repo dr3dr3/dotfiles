@@ -51,11 +51,51 @@ def pane_count(path: Path) -> int | None:
     return sum(len(t.get("panes", {})) for w in d.get("workspaces", []) for t in w.get("tabs", []))
 
 
-def server_running() -> bool:
-    try:
-        out = subprocess.run(["herdr", "status"], capture_output=True, text=True, timeout=10)
-    except (OSError, subprocess.SubprocessError):
+# Resolve the binary ourselves rather than trusting $PATH. The guard's primary
+# caller is local-dev-env's check-env.sh, which runs as postStartCommand — NOT a
+# login shell, so ~/.local/bin is typically absent. Looking up "herdr" by name
+# there raised OSError, which the old code swallowed as "no server running":
+# the one safety interlock was inert at the one call site that matters.
+HERDR_FALLBACKS = (
+    Path.home() / ".local" / "bin" / "herdr",
+    Path("/usr/local/bin/herdr"),
+    Path("/usr/bin/herdr"),
+)
+
+
+def herdr_bin() -> str | None:
+    found = shutil.which("herdr")
+    if found:
+        return found
+    return next((str(p) for p in HERDR_FALLBACKS if p.exists()), None)
+
+
+def server_running() -> bool | None:
+    """True, False, or None when the question could not be answered.
+
+    None is NOT the same as False. No binary at all means Herdr is not installed
+    here, so no server can be running and restoring is safe. A binary that cannot
+    be executed at all (missing interpreter, timeout) is genuinely ambiguous, and
+    the caller declines rather than write over a file a live server may own.
+
+    A non-zero EXIT is deliberately not treated as ambiguous. "No server running"
+    is this tool's primary path — it is the whole point of running at container
+    start — so the check must fail OPEN on anything short of positive evidence of
+    a live server, or the feature is dead in the only case it was built for. The
+    ≤1-pane condition below is the second interlock that makes that safe.
+
+    Note: `herdr status` resolves its socket from $HOME, while this script reads
+    session.json under $XDG_CONFIG_HOME. Both default to ~/.config/herdr, but a
+    machine that sets XDG_CONFIG_HOME elsewhere would have the two disagree —
+    the guard would then be judging a file the running server does not own.
+    """
+    exe = herdr_bin()
+    if exe is None:
         return False
+    try:
+        out = subprocess.run([exe, "status"], capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return None
     return "status: running" in out.stdout
 
 
@@ -64,8 +104,13 @@ def main() -> int:
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
 
-    if server_running():
+    state = server_running()
+    if state:
         print("guard: herdr server is already running — restoring under it would be ignored; nothing done")
+        return 0
+    if state is None:
+        print("guard: `herdr status` did not answer, so whether a server holds session.json is unknown "
+              "— declining rather than writing over a file it may own")
         return 0
 
     sidecars = sorted(SNAPS.glob("*.session.json"), reverse=True)

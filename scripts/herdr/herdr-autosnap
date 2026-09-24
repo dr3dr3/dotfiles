@@ -69,18 +69,52 @@ once() {
   fi
 }
 
+# A live PID is NOT proof the daemon is ours, and the difference is the whole
+# ballgame here:
+#
+#   * the pidfile sits on ~/.config, a persisted volume, so it outlives the
+#     container;
+#   * the EXIT trap below does fire on SIGTERM, but PID 1 in the devcontainer is
+#     `sleep infinity`, which forwards nothing — so Docker SIGKILLs the daemon
+#     when the grace period expires and the trap never runs;
+#   * the next boot restarts the PID space from low numbers and check-env.sh
+#     starts us EARLY, i.e. squarely in the range being handed out.
+#
+# Trusting `kill -0` alone therefore made a rebooted container say "already
+# running (pid 412)" forever, taking no snapshots, while reporting success —
+# failing silently in exactly the scenario this tool exists for. Confirm the
+# process is actually us.
 running() {
   local pid
   pid="$(cat "$PIDFILE" 2>/dev/null || true)"
-  [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null
+  [ -n "$pid" ] || return 1
+  kill -0 "$pid" 2>/dev/null || return 1
+  tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null | grep -q 'herdr-autosnap'
+}
+
+# Distinguishes "no pidfile" from "pidfile pointing at someone else's PID", so
+# status can say which and start can say what it cleaned up.
+stale_pid() {
+  local pid
+  pid="$(cat "$PIDFILE" 2>/dev/null || true)"
+  [ -n "$pid" ] || return 1
+  running && return 1
+  printf '%s' "$pid"
 }
 
 case "${1:-start}" in
   once) once ;;
   status)
-    if running; then echo "herdr-autosnap: running (pid $(cat "$PIDFILE"), every ${INTERVAL}s)";
-    else echo "herdr-autosnap: not running"; fi
-    echo "snapshots: $(ls -1 "$SNAPS"/*.json 2>/dev/null | grep -vc '\.session\.json$' || echo 0) in $SNAPS"
+    if running; then
+      echo "herdr-autosnap: running (pid $(cat "$PIDFILE"), every ${INTERVAL}s)"
+    elif stale="$(stale_pid)"; then
+      echo "herdr-autosnap: not running (stale pidfile -> pid $stale; \`start\` will clear it)"
+    else
+      echo "herdr-autosnap: not running"
+    fi
+    # `grep -c` exits 1 on zero matches, so the old `|| echo 0` fired IN ADDITION
+    # to grep printing its own 0. Count without a conditional exit instead.
+    echo "snapshots: $(find "$SNAPS" -maxdepth 1 -name '*.json' ! -name '*.session.json' 2>/dev/null | wc -l) in $SNAPS"
     [ -f "$LOG" ] && tail -3 "$LOG" || true
     ;;
   stop)
@@ -89,6 +123,11 @@ case "${1:-start}" in
   start)
     install -d -m 0700 "$DIR" "$SNAPS"
     if running; then echo "herdr-autosnap: already running (pid $(cat "$PIDFILE"))"; exit 0; fi
+    if stale="$(stale_pid)"; then
+      log "clearing stale pidfile (pid $stale is not herdr-autosnap)"
+      echo "herdr-autosnap: clearing stale pidfile (pid $stale is not us)"
+      rm -f "$PIDFILE"
+    fi
     command -v herdr >/dev/null || { echo "herdr-autosnap: herdr not on PATH" >&2; exit 1; }
     command -v jq    >/dev/null || { echo "herdr-autosnap: jq required" >&2; exit 1; }
     # setsid so the loop is not in the process group of whatever started it
