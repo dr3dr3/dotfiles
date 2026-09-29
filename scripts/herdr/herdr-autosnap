@@ -54,11 +54,26 @@ digest() {
 
 once() {
   server_up || { log "skip: no herdr server"; return 0; }
-  local d prev
+  local d prev newest
   d="$(digest)"
   [ -n "$d" ] && [ "$d" != "null" ] || { log "skip: could not read snapshot"; return 0; }
   prev="$(cat "$STATE" 2>/dev/null || true)"
   if [ "$d" = "$prev" ]; then
+    # Unchanged layout, so no new snapshot — but DO refresh the newest sidecar's
+    # mtime, because mtime is the only freshness signal herdr-session-guard has.
+    # It refuses a sidecar older than HERDR_GUARD_MAX_AGE_HOURS (48h), so without
+    # this a layout that simply did not change for two days would age its own
+    # snapshot out, and the guard would decline on the next reboot — in exactly
+    # the case this whole thing exists for, and for the most stable layout there
+    # is. Touching means "still correct as of now", which is what the guard
+    # actually needs to know; skipping the WRITE is still the point, so the ring
+    # and its contents are untouched.
+    # Both `|| true`s are load-bearing under `set -euo pipefail`: with no sidecars
+    # yet the glob does not expand, ls exits non-zero, and pipefail would make the
+    # assignment abort the whole tick — on a fresh install, where there is simply
+    # nothing to touch.
+    newest="$(ls -1t "$SNAPS"/*.session.json 2>/dev/null | head -1 || true)"
+    [ -n "${newest:-}" ] && touch "$newest" 2>/dev/null || true
     return 0
   fi
   if out="$(herdr-snapshot 2>&1)"; then

@@ -114,6 +114,42 @@ class GuardTest(unittest.TestCase):
         out = subprocess.run([str(SCRIPT)], capture_output=True, text=True, env=env)
         self.assertIn('already running', out.stdout)
 
+    def test_declines_when_herdr_cannot_be_executed_at_all(self):
+        # 🔑 The ONLY branch that fails CLOSED, and so the only one whose absence
+        # is destructive. server_running() returns three states on purpose: None
+        # means "could not answer", which is NOT False — a live server may own
+        # session.json, so the guard must decline rather than write over it.
+        #
+        # Every other test drives an ANSWERABLE server (`running` or `stopped`),
+        # which is why this path had no cover. It is reached via the fallback
+        # lookup, which checks .exists() and not executability: `which` skips a
+        # non-executable file, the fallback returns it, and running it raises
+        # PermissionError — an OSError, hence None.
+        #
+        # What this protects against is the obvious future tidy-up:
+        # `return "status: running" in out.stdout` looks total, and collapsing
+        # the three states to a bool turns "cannot tell" into "no server" and
+        # overwrites a live session. Without this test that change stays green.
+        # The live session must look GUTTED and the sidecar restorable, so that
+        # the ambiguity check is the ONLY thing standing between the guard and a
+        # write. With a healthy live session the `live_n > 1` interlock would
+        # decline too, and this test would pass even with the None handling gone.
+        self.write_live(1)
+        self.write_sidecar(2, 3)
+        fallback = self.bin.parent / '.local' / 'bin'
+        fallback.mkdir(parents=True)
+        herdr = fallback / 'herdr'
+        herdr.write_text('#!/bin/sh\nprintf "server:\\n  status: stopped\\n"\n')
+        herdr.chmod(0o000)             # present, and impossible to execute
+        env = dict(os.environ, XDG_CONFIG_HOME=str(self.cfg), PATH='/usr/bin:/bin',
+                   HOME=str(self.bin.parent))
+        out = subprocess.run([str(SCRIPT)], capture_output=True, text=True, env=env)
+        self.assertIn('did not answer', out.stdout)
+        self.assertEqual(out.returncode, 0)   # never fails the container start
+        self.assertEqual(self.panes_live(), 1)  # NOT restored from the sidecar
+        self.assertEqual(list(self.cfg.glob('herdr/*.gutted.*')), [],
+                         'declining must not move the live file aside')
+
     def test_leaves_an_intact_session_alone(self):
         self.write_live(4, 4)
         self.write_sidecar(2, 3)
