@@ -1,0 +1,264 @@
+#!/usr/bin/env bash
+# =============================================================================
+# ~/.local/bin/hostchrome — let an agent in the devcontainer drive a Chrome on
+# the host machine, in a window you can watch and take over.
+# (stow package: bin; linked into the container by scripts/setup-devcontainer.sh)
+#
+# One script, three sides (picked automatically; HOSTCHROME_SIDE=mac|linux|container
+# overrides):
+#
+#   Mac / Linux host:  hostchrome [start [url]]   launch (or reuse) the agent Chrome
+#                      hostchrome stop            quit it (and the Linux relays)
+#                      hostchrome status
+#                      hostchrome firewall        Linux: the ufw rules the relay needs
+#
+#   Container:         hostchrome status          can the container reach it?
+#                      hostchrome url             print the CDP URL
+#                      hostchrome axi <args...>   chrome-devtools-axi against it,
+#                                                 e.g. hostchrome axi open http://localhost:8080
+#
+# Why it is shaped like this:
+#   - A separate profile (--user-data-dir). Chrome 136+ ignores
+#     --remote-debugging-port on the default profile, and anything that can
+#     reach the port has full control of the profile — so it is one with no
+#     personal logins in it. Your everyday browser is untouched.
+#   - Loopback only. Chrome honours --remote-debugging-address only in headless
+#     mode, so the port is always 127.0.0.1 on the host. How the container gets
+#     in differs:
+#       Mac (OrbStack): host.docker.internal is forwarded to Mac loopback
+#         (verified 2026-09-30, Chrome 154). Docker Desktop may not do this.
+#       Linux (Omarchy, native Docker): nothing forwards to loopback, so start
+#         runs a socat relay on each Docker bridge address (docker0, br-*) —
+#         reachable from containers, not from the LAN. ufw's default-deny then
+#         drops the container's connection until `hostchrome firewall`'s rules
+#         are added.
+#   - IP, not hostname. The DevTools HTTP endpoint rejects a Host header that is
+#     not an IP or "localhost" (a DNS-rebinding guard), so the container side
+#     resolves the host to an IPv4 address first: host.docker.internal when it
+#     exists, else the container's default gateway (a bridge address — one the
+#     Linux relay listens on).
+#   - A named axi session ("host"). chrome-devtools-axi's default session keeps
+#     launching its own headless Chrome, so unattended workers are unaffected.
+#   - The same URLs on both sides. The stack's published ports (8080, 8081, …)
+#     are on the host's localhost, so a URL you paste and a URL the agent opens
+#     mean the same thing.
+# =============================================================================
+set -euo pipefail
+
+port="${HOSTCHROME_PORT:-9222}"
+profile="${HOSTCHROME_PROFILE:-$HOME/.chrome-roe-agent}"
+
+die() { echo "hostchrome: $*" >&2; exit 1; }
+
+cdp_version() { curl -fsS -m 3 "http://$1:$port/json/version" 2>/dev/null; }
+
+side() {
+  if [[ -n "${HOSTCHROME_SIDE:-}" ]]; then echo "$HOSTCHROME_SIDE"
+  elif [[ -e /.dockerenv || -e /run/.containerenv ]]; then echo container
+  elif [[ "$(uname -s)" == Darwin ]]; then echo mac
+  else echo linux
+  fi
+}
+
+open_tab() {
+  # Opens in the agent Chrome specifically — a desktop "open" would pick your everyday one.
+  curl -fsS -m 3 -X PUT "http://127.0.0.1:$port/json/new?$1" >/dev/null ||
+    die "could not open $1 in the agent Chrome"
+}
+
+wait_for_cdp() {
+  local _
+  for _ in $(seq 1 30); do
+    if cdp_version 127.0.0.1 >/dev/null; then
+      echo "hostchrome: agent Chrome ready on 127.0.0.1:$port (profile $profile)"
+      return 0
+    fi
+    sleep 0.5
+  done
+  die "Chrome started but port $port never answered — is something else holding it? (ss -ltnp / lsof -iTCP:$port)"
+}
+
+host_status() {
+  local v
+  if v="$(cdp_version 127.0.0.1)"; then
+    echo "hostchrome: listening on 127.0.0.1:$port"
+    printf '%s\n' "$v" | grep -E '"Browser"' || true
+  else
+    echo "hostchrome: not running — start it with: hostchrome"
+    return 1
+  fi
+}
+
+stop_chrome() {
+  if pkill -f -- "--user-data-dir=$profile"; then echo "hostchrome: Chrome stopped"
+  else echo "hostchrome: Chrome not running"; fi
+}
+
+# --- Mac ---------------------------------------------------------------------
+mac_start() {
+  local url="${1:-}" app="${HOSTCHROME_APP:-Google Chrome}"
+  if cdp_version 127.0.0.1 >/dev/null; then
+    echo "hostchrome: agent Chrome already listening on 127.0.0.1:$port"
+    if [[ -n "$url" ]]; then open_tab "$url"; fi
+    return 0
+  fi
+  open -Ra "$app" 2>/dev/null || die "'$app' is not installed (set HOSTCHROME_APP to another Chromium browser)"
+  mkdir -p "$profile"
+  # -n: a new instance even when your everyday Chrome is running.
+  open -na "$app" --args \
+    --remote-debugging-port="$port" \
+    --user-data-dir="$profile" \
+    --no-first-run --no-default-browser-check \
+    ${url:+"$url"}
+  wait_for_cdp
+}
+
+# --- Linux host --------------------------------------------------------------
+state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/hostchrome"
+
+# "<iface> <network/prefix> <address>" for each Docker bridge (docker0, br-*).
+bridges() {
+  ip -4 route show proto kernel scope link 2>/dev/null | awk '
+    { dev = ""; src = ""
+      for (i = 1; i <= NF; i++) { if ($i == "dev") dev = $(i + 1); if ($i == "src") src = $(i + 1) }
+      if ((dev == "docker0" || dev ~ /^br-/) && src != "") print dev, $1, src }'
+}
+
+relay_alive() {
+  local pid
+  pid="$(cat "$1" 2>/dev/null)" || return 1
+  [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null && grep -q socat "/proc/$pid/cmdline" 2>/dev/null
+}
+
+start_relays() {
+  command -v socat >/dev/null || die "socat is not installed (omarchy pkg add socat)"
+  mkdir -p "$state_dir"
+  local dev net addr pidfile n=0
+  while read -r dev net addr; do
+    [[ -n "$addr" ]] || continue
+    pidfile="$state_dir/relay-$addr.pid"
+    if relay_alive "$pidfile"; then n=$((n + 1)); continue; fi
+    # No job control in a script, so the background child is not a process-group
+    # leader: setsid execs socat in place and $! is socat's own pid.
+    nohup setsid socat "TCP-LISTEN:$port,bind=$addr,reuseaddr,fork" "TCP:127.0.0.1:$port" \
+      >>"$state_dir/relay.log" 2>&1 </dev/null &
+    echo $! >"$pidfile"
+    n=$((n + 1))
+    echo "hostchrome: relay $addr:$port -> 127.0.0.1:$port ($dev $net)"
+  done < <(bridges)
+  [[ $n -gt 0 ]] || die "no Docker bridge found (docker0 / br-*) — is Docker running?"
+  if command -v ufw >/dev/null && systemctl is-active --quiet ufw 2>/dev/null; then
+    echo "hostchrome: ufw is active — if the container cannot connect, add the rules from: hostchrome firewall"
+  fi
+}
+
+stop_relays() {
+  local f pid
+  for f in "$state_dir"/relay-*.pid; do
+    [[ -e "$f" ]] || continue
+    if relay_alive "$f"; then
+      pid="$(cat "$f")"; kill "$pid" && echo "hostchrome: relay ${f##*/relay-} stopped"
+    fi
+    rm -f "$f"
+  done
+}
+
+linux_firewall() {
+  local dev net addr
+  echo "# Let containers on each Docker bridge reach the relay on that bridge's own address only:"
+  while read -r dev net addr; do
+    [[ -n "$addr" ]] && echo "sudo ufw allow in on $dev from $net to $addr port $port proto tcp comment 'hostchrome'"
+  done < <(bridges)
+}
+
+linux_start() {
+  local url="${1:-}" bin="" b
+  if cdp_version 127.0.0.1 >/dev/null; then
+    echo "hostchrome: agent Chrome already listening on 127.0.0.1:$port"
+    if [[ -n "$url" ]]; then open_tab "$url"; fi
+  else
+    for b in "${HOSTCHROME_BROWSER:-}" chromium google-chrome-stable google-chrome chromium-browser; do
+      if [[ -n "$b" ]] && command -v "$b" >/dev/null; then bin="$b"; break; fi
+    done
+    [[ -n "$bin" ]] || die "no Chromium/Chrome found (set HOSTCHROME_BROWSER)"
+    mkdir -p "$profile" "$state_dir"
+    # Arch's chromium wrapper still reads ~/.config/chromium-flags.conf (Omarchy's Wayland flags).
+    nohup setsid "$bin" \
+      --remote-debugging-port="$port" \
+      --user-data-dir="$profile" \
+      --no-first-run --no-default-browser-check \
+      ${url:+"$url"} >>"$state_dir/chrome.log" 2>&1 </dev/null &
+    wait_for_cdp
+  fi
+  start_relays
+}
+
+# --- Container ---------------------------------------------------------------
+host_ip() {
+  local ip="${HOSTCHROME_HOST:-}" g
+  if [[ -z "$ip" ]]; then
+    ip="$(getent ahostsv4 host.docker.internal 2>/dev/null | awk 'NR == 1 { print $1 }')"
+  fi
+  if [[ -z "$ip" ]]; then
+    # Default gateway = this network's bridge address on the host.
+    # /proc/net/route holds it as little-endian hex.
+    g="$(awk 'NR > 1 && $2 == "00000000" { print $3; exit }' /proc/net/route 2>/dev/null)"
+    if [[ ${#g} -eq 8 ]]; then
+      ip="$((16#${g:6:2})).$((16#${g:4:2})).$((16#${g:2:2})).$((16#${g:0:2}))"
+    fi
+  fi
+  [[ -n "$ip" ]] || die "cannot find the host's address (set HOSTCHROME_HOST)"
+  printf '%s\n' "$ip"
+}
+
+cdp_url() { printf 'http://%s:%s\n' "$(host_ip)" "$port"; }
+
+container_status() {
+  local ip v
+  ip="$(host_ip)"
+  if v="$(cdp_version "$ip")"; then
+    echo "hostchrome: reachable at http://$ip:$port"
+    printf '%s\n' "$v" | grep -E '"Browser"' || true
+  else
+    echo "hostchrome: nothing answering at http://$ip:$port — run 'hostchrome' on the host first (on Linux, also check 'hostchrome firewall')" >&2
+    return 1
+  fi
+}
+
+container_axi() {
+  command -v chrome-devtools-axi >/dev/null || die "chrome-devtools-axi is not on PATH"
+  container_status >/dev/null || die "the agent Chrome is not reachable — run 'hostchrome' on the host first"
+  CHROME_DEVTOOLS_AXI_SESSION="${CHROME_DEVTOOLS_AXI_SESSION:-host}" \
+  CHROME_DEVTOOLS_AXI_BROWSER_URL="$(cdp_url)" \
+    exec chrome-devtools-axi "$@"
+}
+
+# --- dispatch ----------------------------------------------------------------
+cmd="${1:-}"
+if [[ $# -gt 0 ]]; then shift; fi
+
+case "$(side)" in
+  mac)
+    case "$cmd" in
+      ""|start) mac_start "${1:-}" ;;
+      stop)     stop_chrome ;;
+      status)   host_status ;;
+      *)        die "on the Mac: hostchrome [start [url]] | stop | status" ;;
+    esac ;;
+  linux)
+    case "$cmd" in
+      ""|start) linux_start "${1:-}" ;;
+      stop)     stop_chrome; stop_relays ;;
+      status)   host_status ;;
+      firewall) linux_firewall ;;
+      *)        die "on the Linux host: hostchrome [start [url]] | stop | status | firewall" ;;
+    esac ;;
+  container)
+    case "$cmd" in
+      ""|status) container_status ;;
+      url)       cdp_url ;;
+      axi)       container_axi "$@" ;;
+      *)         die "in the container: hostchrome status | url | axi <chrome-devtools-axi args>" ;;
+    esac ;;
+  *) die "HOSTCHROME_SIDE must be mac, linux or container" ;;
+esac

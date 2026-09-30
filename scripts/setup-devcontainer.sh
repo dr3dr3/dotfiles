@@ -112,4 +112,6 @@ python3 "$script_dir/link-container-config.py"
 HERDR_CONTAINER_FISH=1 bash "$script_dir/setup-herdr.sh"
 bash "$script_dir/setup-atuin.sh"
 install_tui_tools
+# hostchrome is a host script (bin package) with a container half: link it here too.
+ln -sfn "$script_dir/../.dotfiles/bin/.local/bin/hostchrome" "$HOME/.local/bin/hostchrome"
 echo "Personal setup complete. Open a new terminal; run fish, zsh or nu to use that shell."
