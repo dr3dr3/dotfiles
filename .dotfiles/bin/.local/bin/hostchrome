@@ -1,0 +1,151 @@
+#!/usr/bin/env bash
+# =============================================================================
+# ~/.local/bin/hostchrome — let an agent in the devcontainer drive a Chrome on
+# the Mac, in a window you can watch and take over.
+# (stow package: bin; linked into the container by scripts/setup-devcontainer.sh)
+#
+# One script, two sides:
+#
+#   Mac:        hostchrome [start [url]]   launch (or reuse) the agent Chrome
+#               hostchrome stop            quit it
+#               hostchrome status
+#
+#   Container:  hostchrome status          can the container reach it?
+#               hostchrome url             print the CDP URL
+#               hostchrome axi <args...>   chrome-devtools-axi against it,
+#                                          e.g. hostchrome axi open http://localhost:8080
+#
+# Why it is shaped like this:
+#   - A separate profile (--user-data-dir). Chrome 136+ ignores
+#     --remote-debugging-port on the default profile, and anything that can
+#     reach the port has full control of the profile — so it is one with no
+#     personal logins in it. Your everyday Chrome is untouched.
+#   - Loopback only. Chrome honours --remote-debugging-address only in headless
+#     mode, so the port is 127.0.0.1 on the Mac. OrbStack forwards
+#     host.docker.internal to Mac loopback, which is how the container gets in
+#     (verified 2026-09-30, Chrome 154). Docker Desktop may not — if
+#     `hostchrome status` fails there, forward the port instead.
+#   - IP, not hostname. The DevTools HTTP endpoint rejects a Host header that is
+#     not an IP or "localhost" (a DNS-rebinding guard), so the container side
+#     resolves host.docker.internal to its IPv4 address first.
+#   - A named axi session ("host"). chrome-devtools-axi's default session keeps
+#     launching its own headless Chrome, so unattended workers are unaffected.
+#   - The same URLs on both sides. The stack's published ports (8080, 8081, …)
+#     are on the Mac's localhost via OrbStack, so a URL you paste and a URL the
+#     agent opens mean the same thing.
+# =============================================================================
+set -euo pipefail
+
+port="${HOSTCHROME_PORT:-9222}"
+
+die() { echo "hostchrome: $*" >&2; exit 1; }
+
+cdp_version() { curl -fsS -m 3 "http://$1:$port/json/version" 2>/dev/null; }
+
+# --- Mac ---------------------------------------------------------------------
+profile="${HOSTCHROME_PROFILE:-$HOME/.chrome-roe-agent}"
+app="${HOSTCHROME_APP:-Google Chrome}"
+
+mac_open_tab() {
+  # Opens in the agent Chrome specifically — `open -a` would pick your everyday one.
+  curl -fsS -m 3 -X PUT "http://127.0.0.1:$port/json/new?$1" >/dev/null ||
+    die "could not open $1 in the agent Chrome"
+}
+
+mac_start() {
+  local url="${1:-}"
+  if cdp_version 127.0.0.1 >/dev/null; then
+    echo "hostchrome: agent Chrome already listening on 127.0.0.1:$port"
+    if [[ -n "$url" ]]; then mac_open_tab "$url"; fi
+    return 0
+  fi
+  open -Ra "$app" 2>/dev/null || die "'$app' is not installed (set HOSTCHROME_APP to another Chromium browser)"
+  mkdir -p "$profile"
+  # -n: a new instance even when your everyday Chrome is running.
+  open -na "$app" --args \
+    --remote-debugging-port="$port" \
+    --user-data-dir="$profile" \
+    --no-first-run --no-default-browser-check \
+    ${url:+"$url"}
+  local _
+  for _ in $(seq 1 30); do
+    if cdp_version 127.0.0.1 >/dev/null; then
+      echo "hostchrome: agent Chrome ready on 127.0.0.1:$port (profile $profile)"
+      return 0
+    fi
+    sleep 0.5
+  done
+  die "Chrome started but port $port never answered — is something else holding it? (lsof -iTCP:$port)"
+}
+
+mac_stop() {
+  if pkill -f -- "--user-data-dir=$profile"; then
+    echo "hostchrome: stopped"
+  else
+    echo "hostchrome: not running"
+  fi
+}
+
+mac_status() {
+  local v
+  if v="$(cdp_version 127.0.0.1)"; then
+    echo "hostchrome: listening on 127.0.0.1:$port"
+    printf '%s\n' "$v" | grep -E '"(Browser|User-Agent)"' || true
+  else
+    echo "hostchrome: not running — start it with: hostchrome"
+    return 1
+  fi
+}
+
+# --- Container ---------------------------------------------------------------
+host_ip() {
+  local ip="${HOSTCHROME_HOST:-}"
+  if [[ -z "$ip" ]]; then
+    ip="$(getent ahostsv4 host.docker.internal 2>/dev/null | awk 'NR==1 { print $1 }')"
+  fi
+  [[ -n "$ip" ]] || die "cannot resolve host.docker.internal to IPv4 (set HOSTCHROME_HOST)"
+  printf '%s\n' "$ip"
+}
+
+cdp_url() { printf 'http://%s:%s\n' "$(host_ip)" "$port"; }
+
+container_status() {
+  local ip v
+  ip="$(host_ip)"
+  if v="$(cdp_version "$ip")"; then
+    echo "hostchrome: reachable at http://$ip:$port"
+    printf '%s\n' "$v" | grep -E '"Browser"' || true
+  else
+    echo "hostchrome: nothing answering at http://$ip:$port — run 'hostchrome' on the Mac first" >&2
+    return 1
+  fi
+}
+
+container_axi() {
+  command -v chrome-devtools-axi >/dev/null || die "chrome-devtools-axi is not on PATH"
+  container_status >/dev/null || die "the agent Chrome is not reachable — run 'hostchrome' on the Mac first"
+  CHROME_DEVTOOLS_AXI_SESSION="${CHROME_DEVTOOLS_AXI_SESSION:-host}" \
+  CHROME_DEVTOOLS_AXI_BROWSER_URL="$(cdp_url)" \
+    exec chrome-devtools-axi "$@"
+}
+
+# --- dispatch ----------------------------------------------------------------
+cmd="${1:-}"
+[[ $# -gt 0 ]] && shift
+
+case "$(uname -s)" in
+  Darwin)
+    case "$cmd" in
+      ""|start) mac_start "${1:-}" ;;
+      stop)     mac_stop ;;
+      status)   mac_status ;;
+      *)        die "on the Mac: hostchrome [start [url]] | stop | status" ;;
+    esac ;;
+  *)
+    case "$cmd" in
+      ""|status) container_status ;;
+      url)       cdp_url ;;
+      axi)       container_axi "$@" ;;
+      *)         die "in the container: hostchrome status | url | axi <chrome-devtools-axi args>" ;;
+    esac ;;
+esac
