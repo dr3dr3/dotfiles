@@ -74,9 +74,11 @@ link_config() {
   echo "✓ Herdr config linked: $CONFIG_DST → $CONFIG_SRC"
 }
 
-# Rebuild-restore helpers (docs/HERDR.md "Surviving a devcontainer rebuild"):
-# launch.toml declares service commands to relaunch per pane; the three scripts
-# snapshot the live session, replay a snapshot, and rerun those commands.
+# Restore helpers (docs/HERDR.md "Surviving a devcontainer rebuild" and
+# "Surviving a host reboot"): launch.toml declares service commands to relaunch
+# per pane; the scripts snapshot the live session, replay a snapshot, rerun
+# those commands, keep the snapshot fresh on a timer (herdr-autosnap), and put
+# back a session.json that a clean shutdown emptied (herdr-session-guard).
 link_restore_tooling() {
   local launch_src="$REPO_DIR/.dotfiles/herdr/.config/herdr/launch.toml"
   local launch_dst="${XDG_CONFIG_HOME:-$HOME/.config}/herdr/launch.toml"
@@ -90,10 +92,10 @@ link_restore_tooling() {
   fi
   mkdir -p "$HOME/.local/bin"
   local tool
-  for tool in herdr-snapshot herdr-replay herdr-after-restore; do
+  for tool in herdr-snapshot herdr-replay herdr-after-restore herdr-autosnap herdr-session-guard; do
     ln -sfn "$REPO_DIR/scripts/herdr/$tool" "$HOME/.local/bin/$tool"
   done
-  echo "✓ Herdr restore tooling on PATH: herdr-snapshot, herdr-replay, herdr-after-restore"
+  echo "✓ Herdr restore tooling on PATH: herdr-snapshot, herdr-replay, herdr-after-restore, herdr-autosnap, herdr-session-guard"
 }
 
 install_herdr

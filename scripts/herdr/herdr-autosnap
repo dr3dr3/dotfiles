@@ -1,0 +1,163 @@
+#!/usr/bin/env bash
+# herdr-autosnap — keep a recent Herdr snapshot on disk at all times.
+#
+# herdr-snapshot is excellent insurance and, until now, was only ever fired by
+# `devrebuild` — i.e. exactly and only on the ONE failure mode we control. The
+# failures we do not control (host reboot for an OS update, Docker Desktop
+# restart, OOM kill, laptop lid) leave no snapshot at all, and the fallback
+# underneath it — Herdr's own session.json — is itself destroyed by a clean
+# shutdown (see herdr-session-guard). On 2026-09-23 that combination cost a
+# 41-pane, 31-session workspace, which had to be reconstructed by hand from
+# transcript mtimes and the server log.
+#
+# So: snapshot on a timer, not on an event we have to remember to trigger.
+#
+# Cheap by design — it only writes when the layout actually CHANGED since the
+# last snapshot (same panes + same agent session ids => no write), so an idle
+# workspace does not churn the ring buffer and the retained history covers real
+# working time rather than the last N minutes.
+#
+#   herdr-autosnap start     # background daemon (safe to call repeatedly)
+#   herdr-autosnap stop
+#   herdr-autosnap status
+#   herdr-autosnap once      # single check, used by the daemon loop
+#
+# Tunables: HERDR_AUTOSNAP_INTERVAL (seconds, default 300)
+#           HERDR_SNAPSHOT_KEEP     (passed through to herdr-snapshot)
+set -euo pipefail
+
+DIR="${XDG_CONFIG_HOME:-$HOME/.config}/herdr"
+SNAPS="$DIR/snapshots"
+PIDFILE="$DIR/autosnap.pid"
+LOG="$DIR/autosnap.log"
+STATE="$DIR/autosnap.digest"
+INTERVAL="${HERDR_AUTOSNAP_INTERVAL:-300}"
+# Deeper ring than a hand-run herdr-snapshot: this fires on every layout change,
+# so 20 would cover only an hour of busy work. 60 pairs is a few MB.
+export HERDR_SNAPSHOT_KEEP="${HERDR_SNAPSHOT_KEEP:-60}"
+
+log() { printf '%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*" >>"$LOG"; }
+
+server_up() { herdr status server >/dev/null 2>&1 && herdr status 2>/dev/null | grep -q 'status: running'; }
+
+# A digest of what we would actually want back: which panes exist, in which
+# tabs, and which agent session id each one holds. Deliberately NOT the whole
+# snapshot — cwd, focus, scroll offsets and timestamps all churn constantly and
+# would make every tick look like a change.
+digest() {
+  herdr api snapshot 2>/dev/null | jq -S -c '
+    .result.snapshot
+    | {panes: [.panes[]? | {pane_id, tab_id}] | sort,
+       agents: [.agents[]? | {pane_id, sid: .agent_session.value}] | sort}
+  ' 2>/dev/null || true
+}
+
+once() {
+  server_up || { log "skip: no herdr server"; return 0; }
+  local d prev newest
+  d="$(digest)"
+  [ -n "$d" ] && [ "$d" != "null" ] || { log "skip: could not read snapshot"; return 0; }
+  prev="$(cat "$STATE" 2>/dev/null || true)"
+  if [ "$d" = "$prev" ]; then
+    # Unchanged layout, so no new snapshot — but DO refresh the newest sidecar's
+    # mtime, because mtime is the only freshness signal herdr-session-guard has.
+    # It refuses a sidecar older than HERDR_GUARD_MAX_AGE_HOURS (48h), so without
+    # this a layout that simply did not change for two days would age its own
+    # snapshot out, and the guard would decline on the next reboot — in exactly
+    # the case this whole thing exists for, and for the most stable layout there
+    # is. Touching means "still correct as of now", which is what the guard
+    # actually needs to know; skipping the WRITE is still the point, so the ring
+    # and its contents are untouched.
+    # Both `|| true`s are load-bearing under `set -euo pipefail`: with no sidecars
+    # yet the glob does not expand, ls exits non-zero, and pipefail would make the
+    # assignment abort the whole tick — on a fresh install, where there is simply
+    # nothing to touch.
+    newest="$(ls -1t "$SNAPS"/*.session.json 2>/dev/null | head -1 || true)"
+    [ -n "${newest:-}" ] && touch "$newest" 2>/dev/null || true
+    return 0
+  fi
+  if out="$(herdr-snapshot 2>&1)"; then
+    printf '%s' "$d" >"$STATE"
+    log "snapshot: $out"
+  else
+    log "snapshot FAILED: $out"
+  fi
+}
+
+# A live PID is NOT proof the daemon is ours, and the difference is the whole
+# ballgame here:
+#
+#   * the pidfile sits on ~/.config, a persisted volume, so it outlives the
+#     container;
+#   * the EXIT trap below does fire on SIGTERM, but PID 1 in the devcontainer is
+#     `sleep infinity`, which forwards nothing — so Docker SIGKILLs the daemon
+#     when the grace period expires and the trap never runs;
+#   * the next boot restarts the PID space from low numbers and check-env.sh
+#     starts us EARLY, i.e. squarely in the range being handed out.
+#
+# Trusting `kill -0` alone therefore made a rebooted container say "already
+# running (pid 412)" forever, taking no snapshots, while reporting success —
+# failing silently in exactly the scenario this tool exists for. Confirm the
+# process is actually us.
+running() {
+  local pid
+  pid="$(cat "$PIDFILE" 2>/dev/null || true)"
+  [ -n "$pid" ] || return 1
+  kill -0 "$pid" 2>/dev/null || return 1
+  tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null | grep -q 'herdr-autosnap'
+}
+
+# Distinguishes "no pidfile" from "pidfile pointing at someone else's PID", so
+# status can say which and start can say what it cleaned up.
+stale_pid() {
+  local pid
+  pid="$(cat "$PIDFILE" 2>/dev/null || true)"
+  [ -n "$pid" ] || return 1
+  running && return 1
+  printf '%s' "$pid"
+}
+
+case "${1:-start}" in
+  once) once ;;
+  status)
+    if running; then
+      echo "herdr-autosnap: running (pid $(cat "$PIDFILE"), every ${INTERVAL}s)"
+    elif stale="$(stale_pid)"; then
+      echo "herdr-autosnap: not running (stale pidfile -> pid $stale; \`start\` will clear it)"
+    else
+      echo "herdr-autosnap: not running"
+    fi
+    # `grep -c` exits 1 on zero matches, so the old `|| echo 0` fired IN ADDITION
+    # to grep printing its own 0. Count without a conditional exit instead.
+    echo "snapshots: $(find "$SNAPS" -maxdepth 1 -name '*.json' ! -name '*.session.json' 2>/dev/null | wc -l) in $SNAPS"
+    [ -f "$LOG" ] && tail -3 "$LOG" || true
+    ;;
+  stop)
+    if running; then kill "$(cat "$PIDFILE")" 2>/dev/null || true; rm -f "$PIDFILE"; echo "stopped"; else echo "not running"; fi
+    ;;
+  start)
+    install -d -m 0700 "$DIR" "$SNAPS"
+    if running; then echo "herdr-autosnap: already running (pid $(cat "$PIDFILE"))"; exit 0; fi
+    if stale="$(stale_pid)"; then
+      log "clearing stale pidfile (pid $stale is not herdr-autosnap)"
+      echo "herdr-autosnap: clearing stale pidfile (pid $stale is not us)"
+      rm -f "$PIDFILE"
+    fi
+    command -v herdr >/dev/null || { echo "herdr-autosnap: herdr not on PATH" >&2; exit 1; }
+    command -v jq    >/dev/null || { echo "herdr-autosnap: jq required" >&2; exit 1; }
+    # setsid so the loop is not in the process group of whatever started it
+    # (postStartCommand, a login shell, a pane) and does not die with it.
+    setsid bash -c '
+      echo $$ > "'"$PIDFILE"'"
+      trap "rm -f \"'"$PIDFILE"'\"" EXIT
+      while true; do
+        "'"$0"'" once || true
+        sleep "'"$INTERVAL"'"
+      done
+    ' >/dev/null 2>&1 &
+    sleep 0.2
+    log "started (interval ${INTERVAL}s)"
+    echo "herdr-autosnap: started (every ${INTERVAL}s, snapshots in $SNAPS)"
+    ;;
+  *) echo "usage: herdr-autosnap [start|stop|status|once]" >&2; exit 2 ;;
+esac

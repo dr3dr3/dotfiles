@@ -266,7 +266,7 @@ agent, every shell. What comes back, and how:
 The routine, from the host checkout:
 
 ```bash
-devrebuild                # snapshot → home-volume check → clean Herdr stop → rebuild → devherd
+devrebuild                # snapshot → home-volume check → snapshot+stop Herdr → rebuild → guard → devherd
 ```
 
 Then inside, once the layout is back:
@@ -279,4 +279,48 @@ fm                        # the captain, sandboxed
 
 `herdr-snapshot` writes `~/.config/herdr/snapshots/<ts>.json` — every pane's
 session id, no output — so a stale or corrupt `session.json` is recoverable.
-`devrebuild` takes one automatically; run it by hand before anything risky.
+It also drops a `<ts>.session.json` sidecar: Herdr's own file, copied at the
+same instant, which `herdr-session-guard` can put straight back.
+
+## Surviving a host reboot
+
+The rebuild path above is operator-driven, so something always runs first. A
+host reboot for an OS update, a Docker restart, an OOM kill or a flat battery
+is not, and until 2026-09-23 nothing covered it. Two things then compound:
+
+**A clean shutdown is the destructive one.** Herdr re-saves `session.json`
+after *every* pane exit. During a graceful shutdown the panes exit one by one
+and each exit rewrites the file smaller, so the last write describes an empty
+workspace and the next restore faithfully restores nothing. A hard kill leaves
+the file untouched and everything comes back. Exactly backwards from the
+intuition, and it means `herdr server stop` needs a copy taken first:
+
+| How it ends | `session.json` | What restores |
+|---|---|---|
+| `docker kill`, OOM, power cut | intact | everything |
+| Reboot, `herdr server stop`, `devrebuild` | emptied pane-by-pane | one pane |
+
+**`herdr-snapshot` used to run only from `devrebuild`** — that is, only on the
+failure we control. `herdr-autosnap` now runs it on a timer (5 min, and only
+when the layout actually changed), started from local-dev-env's
+`check-env.sh` on every container start. So there is always a recent snapshot,
+whatever killed the box.
+
+Coming back after an unplanned reboot:
+
+```bash
+herdr-session-guard       # BEFORE attaching — puts session.json back if it was emptied
+devherd                   # attach; Herdr rebuilds the layout and resumes the agents
+herdr-replay              # only if the guard had nothing to work with (--apply)
+herdr-after-restore       # services declared in launch.toml
+```
+
+The guard also runs automatically from `check-env.sh`, so in practice a reboot
+should just work; run it by hand when you want to see what it decided. It acts
+only on the unambiguous signature — a live file with ≤1 pane beside a sidecar
+under 48h old with several — and says why when it declines.
+
+If you ever have neither, the sessions are still not lost: every Claude
+transcript belonging to a live pane gets a final write at the instant of
+shutdown, so `ls -lt ~/.claude/projects/*/` grouped by that one minute is the
+list of what was open, and each is `claude --resume <id>`.

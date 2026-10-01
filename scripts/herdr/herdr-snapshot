@@ -12,6 +12,7 @@
 set -euo pipefail
 DIR="${XDG_CONFIG_HOME:-$HOME/.config}/herdr/snapshots"
 KEEP="${HERDR_SNAPSHOT_KEEP:-20}"
+SESSION="${XDG_CONFIG_HOME:-$HOME/.config}/herdr/session.json"
 command -v herdr >/dev/null || { echo "herdr-snapshot: herdr not on PATH" >&2; exit 1; }
 command -v jq >/dev/null || { echo "herdr-snapshot: jq required" >&2; exit 1; }
 install -d -m 0700 "$DIR"
@@ -19,5 +20,14 @@ f="$DIR/$(date -u +%Y%m%dT%H%M%SZ).json"
 herdr api snapshot >"$f.tmp" || { rm -f "$f.tmp"; echo "herdr-snapshot: herdr api snapshot failed (server not running?)" >&2; exit 1; }
 jq -e '.result.snapshot.workspaces | length > 0' "$f.tmp" >/dev/null || { rm -f "$f.tmp"; echo "herdr-snapshot: snapshot has no workspaces — refusing to save an empty one" >&2; exit 1; }
 chmod 600 "$f.tmp" && mv "$f.tmp" "$f"
+# Sidecar: Herdr's OWN session.json, taken at the same instant. The snapshot
+# above replays a layout by recreating it; this is the file Herdr restores from
+# natively, so keeping a known-good copy means a gutted session.json (see
+# herdr-session-guard) can be put back with a cp instead of a rebuild.
+if [ -f "$SESSION" ]; then cp "$SESSION" "${f%.json}.session.json" && chmod 600 "${f%.json}.session.json"; fi
 jq -r --arg f "$f" '.result.snapshot | "\($f): \(.workspaces|length) workspaces, \(.tabs|length) tabs, \(.panes|length) panes, \([.agents[]|select(.agent_session.value!=null)]|length) agent sessions"' "$f"
-ls -1t "$DIR"/*.json 2>/dev/null | tail -n +$((KEEP+1)) | xargs -r rm -f
+# Retention: rank by the SNAPSHOT files only (sidecars share the timestamp
+# prefix, so a naive *.json sweep would count each pair twice and halve KEEP).
+ls -1t "$DIR"/*.json 2>/dev/null | grep -v '\.session\.json$' | tail -n +$((KEEP+1)) | while read -r old; do
+  rm -f "$old" "${old%.json}.session.json"
+done

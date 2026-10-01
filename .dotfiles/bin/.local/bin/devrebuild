@@ -10,7 +10,8 @@
 #   2. make sure /home/vscode is on the home volume; if it is still ephemeral
 #      (a container from before local-dev-env #537) seed it NOW, because the
 #      rebuild is the moment that home is thrown away
-#   3. stop the Herdr server cleanly so session.json is complete, not mid-write
+#   3. copy session.json aside, THEN stop the server — a clean stop empties the
+#      file (see herdr-session-guard), so the copy is the thing that survives
 #   4. rebuild through local-dev-env's own script, then attach with devherd —
 #      the first attach is what triggers Herdr's restore + agent resume
 #
@@ -19,6 +20,7 @@
 #   devrebuild --no-cache      # passed through to scripts/rebuild-devcontainer.sh
 #
 # Afterwards, inside the container:
+#   herdr-session-guard        # put session.json back if the stop emptied it
 #   herdr-replay               # plan for anything native restore did not bring back
 #   herdr-after-restore        # relaunch service commands declared in launch.toml
 #   fm                         # the Firstmate captain — NEVER resume it by id
@@ -53,12 +55,25 @@ step "2/4 Home volume"
 devsh bash -lc 'bash /workspace/scripts/seed-home-volume.sh --force' || {
   echo "devrebuild: could not confirm the home volume — refusing to rebuild an ephemeral home." >&2; exit 1; }
 
-step "3/4 Stop Herdr cleanly (flushes session.json)"
+step "3/4 Stop Herdr (snapshot FIRST — a clean stop empties session.json)"
+# Counter-intuitive and learned the hard way (2026-09-23): Herdr re-saves
+# session.json after every pane exit, so stopping cleanly walks the file down to
+# an empty workspace — the opposite of "flushing" it. Step 1's snapshot already
+# captured the layout; this takes the native file too, so the fast path back is
+# `herdr-session-guard` (a cp) rather than `herdr-replay` (a rebuild).
+devsh bash -lc 'command -v herdr-snapshot >/dev/null && herdr-snapshot' >/dev/null 2>&1 || true
 devsh bash -lc 'herdr server stop' 2>/dev/null || echo "   (no Herdr server running)"
 
 step "4/4 Rebuild"
 ( cd "$root" && scripts/rebuild-devcontainer.sh "$@" )
 
+step "Restore guard — before the attach, because attaching starts the server"
+# The attach below is what starts the Herdr server, and the server restores from
+# session.json at startup. So the guard only has a window here: after the
+# rebuild, before devherd. (check-env.sh runs it on container start too; this is
+# the belt to that's braces, and it is a no-op when the file is intact.)
+devsh bash -lc 'command -v herdr-session-guard >/dev/null && herdr-session-guard' || true
+
 step "Attach — Herdr restores layout and resumes agents on this first attach"
-echo "   then inside:  herdr-replay   ·   herdr-after-restore   ·   fm"
+echo "   then inside:  herdr-session-guard   ·   herdr-replay   ·   herdr-after-restore   ·   fm"
 exec devherd
