@@ -1,0 +1,101 @@
+# Tests — the Python suites under tests/, plus a parse check over every script.
+#
+# This repo had NO CI at all. It ships 45 tests covering, among other things, the
+# interlocks in herdr-session-guard that decide whether session.json is overwritten
+# — the file whose loss cost a 41-pane workspace on 2026-09-23. Until now those
+# tests ran only when someone remembered to run them, which makes them a good
+# intention rather than a gate.
+#
+# Deliberately NOT shellcheck. `bash -n` is a parse check and nothing more, so it
+# cannot fail on pre-existing style across 23 scripts written over a year. Adding
+# shellcheck is worth doing as its own change, at a severity chosen on purpose and
+# ratcheted — not smuggled in here where it would make the first run red for
+# reasons unrelated to the tests.
+#
+# NO paths filter. The suites are fast (~5s) and a filter is how a test stops
+# running on the change that breaks it — the mistake local-dev-env's
+# tooling-tests.yml documents in its own header, where a 39-assertion release.sh
+# suite spent time never running on a release.sh change.
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    name: python tests + parse check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          # Pinned, not "latest": herdr-session-guard uses `bool | None`, which
+          # needs 3.10+, and a silent major bump is not something a dotfiles repo
+          # should discover through a confusing test failure.
+          python-version: "3.12"
+
+      # jq is not decoration. herdr-autosnap's digest() pipes `herdr api snapshot`
+      # through it, so the freshness tests exercise it. Assert it up front rather
+      # than let its absence surface as an unrelated-looking assertion failure.
+      - name: Tool versions
+        run: |
+          set -euo pipefail
+          python3 --version
+          bash --version | head -1
+          git --version
+          command -v jq >/dev/null || { echo "::error::jq is required by herdr-autosnap's digest()"; exit 1; }
+          jq --version
+
+      # Covers the herdr-* scripts too, which carry a shebang but no extension —
+      # a `*.sh` glob would miss exactly the files the tests above guard.
+      - name: Parse every script
+        run: |
+          set -uo pipefail
+          rc=0 sh_n=0 py_n=0
+          while IFS= read -r f; do
+            [ -f "$f" ] || continue
+            shebang="$(head -1 "$f" 2>/dev/null || true)"
+            if printf '%s' "$shebang" | grep -qE '^#!.*\b(ba)?sh\b'; then
+              sh_n=$((sh_n+1))
+              bash -n "$f" || { echo "::error file=$f::does not parse as bash"; rc=1; }
+            elif printf '%s' "$shebang" | grep -qE '^#!.*python'; then
+              py_n=$((py_n+1))
+              python3 -m py_compile "$f" || { echo "::error file=$f::does not compile as python"; rc=1; }
+            fi
+          done < <(git ls-files)
+          echo "parsed $sh_n shell and $py_n python scripts"
+          # A classifier that matched nothing would make this step a green no-op,
+          # which is the one failure mode a gate must never have.
+          if [ "$sh_n" -eq 0 ] || [ "$py_n" -eq 0 ]; then
+            echo "::error::the shebang classifier matched nothing — this step would pass vacuously"
+            rc=1
+          fi
+          exit "$rc"
+
+      - name: Run tests/
+        run: |
+          set -uo pipefail
+          python3 -m unittest discover -s tests -v 2>&1 | tee /tmp/out.txt
+          rc=${PIPESTATUS[0]}
+          # `unittest discover` exits 0 when it finds NOTHING, so a rename or a
+          # broken import that empties the suite would otherwise read as a pass.
+          ran="$(grep -oE '^Ran [0-9]+ test' /tmp/out.txt | grep -oE '[0-9]+' | tail -1 || true)"
+          echo "ran=${ran:-0}"
+          if [ "${ran:-0}" -lt 40 ]; then
+            echo "::error::expected at least 40 tests, saw ${ran:-0} — the suite shrank or did not load"
+            exit 1
+          fi
+          exit "$rc"
