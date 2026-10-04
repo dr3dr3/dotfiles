@@ -80,7 +80,7 @@ retire_generated_atuin_fish_hook() {
 }
 
 echo "→ Installing Omarchy packages"
-omarchy pkg add stow fish nushell starship atuin
+omarchy pkg add stow fish nushell starship atuin socat  # socat: hostchrome relay
 
 for package in "${stow_packages[@]}"; do
   prepare_stow_package "$package"
