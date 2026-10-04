@@ -14,8 +14,14 @@
 #
 #   Container:         hostchrome status          can the container reach it?
 #                      hostchrome url             print the CDP URL
+#                      hostchrome open <url>      open a tab for the human
 #                      hostchrome axi <args...>   chrome-devtools-axi against it,
 #                                                 e.g. hostchrome axi open http://localhost:8080
+#                      hostchrome stop            drop the container-port forwards
+#                      roe-browser-open <url>     $BROWSER shim (symlink to this script)
+#
+#   localhost URLs: published stack ports pass through; container-only ports are
+#   forwarded onto the container IP and the URL rewritten (see reach_url).
 #
 # Why it is shaped like this:
 #   - A separate profile (--user-data-dir). Chrome 136+ ignores
@@ -47,6 +53,7 @@ set -euo pipefail
 
 port="${HOSTCHROME_PORT:-9222}"
 profile="${HOSTCHROME_PROFILE:-$HOME/.chrome-roe-agent}"
+state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/hostchrome"
 
 die() { echo "hostchrome: $*" >&2; exit 1; }
 
@@ -114,7 +121,6 @@ mac_start() {
 }
 
 # --- Linux host --------------------------------------------------------------
-state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/hostchrome"
 
 # "<iface> <network/prefix> <address>" for each Docker bridge (docker0, br-*).
 bridges() {
@@ -153,11 +159,11 @@ start_relays() {
 }
 
 stop_relays() {
-  local f pid
+  local f pid n
   for f in "$state_dir"/relay-*.pid; do
     [[ -e "$f" ]] || continue
     if relay_alive "$f"; then
-      pid="$(cat "$f")"; kill "$pid" && echo "hostchrome: relay ${f##*/relay-} stopped"
+      pid="$(cat "$f")"; kill "$pid" && { n="${f##*/relay-}"; echo "hostchrome: relay ${n%.pid} stopped"; }
     fi
     rm -f "$f"
   done
@@ -225,15 +231,116 @@ container_status() {
   fi
 }
 
+# A localhost URL means the CONTAINER's loopback to the agent but the HOST's to
+# the browser. Ports the stack publishes (8080, 8011, …) exist on both, so those
+# pass through. Anything else (lavish, impeccable live, a Vite dev server) only
+# exists in here: forward it onto the container's own IP — which OrbStack and a
+# Linux host both route to — and rewrite the URL to that IP.
+container_ip() {
+  local ip="${HOSTCHROME_CONTAINER_IP:-}"
+  [[ -n "$ip" ]] || ip="$(hostname -I 2>/dev/null | awk '{ print $1 }')"
+  [[ -n "$ip" ]] || die "cannot find this container's IP (set HOSTCHROME_CONTAINER_IP)"
+  printf '%s\n' "$ip"
+}
+
+published_on_host() {
+  docker ps --format '{{.Ports}}' 2>/dev/null | tr ',' '\n' |
+    sed -nE 's/^ *(0\.0\.0\.0|\[::\]|127\.0\.0\.1):([0-9]+)->.*/\2/p' | grep -qx "$1"
+}
+
+# Already listening on all addresses (or on the container IP)? Then no forward is needed.
+listens_wide() {
+  local hex cip_hex
+  hex="$(printf '%04X' "$1")"
+  # shellcheck disable=SC2046  # word-split the four octets on purpose
+  cip_hex="$(printf '%02X' $(echo "$2" | tr '.' ' ') | sed -E 's/(..)(..)(..)(..)/\4\3\2\1/')"
+  awk -v a="00000000:$hex" -v b="$cip_hex:$hex" 'NR > 1 && $4 == "0A" && ($2 == a || $2 == b) { f = 1 } END { exit !f }' /proc/net/tcp ||
+    awk -v a="00000000000000000000000000000000:$hex" 'NR > 1 && $4 == "0A" && $2 == a { f = 1 } END { exit !f }' /proc/net/tcp6 2>/dev/null
+}
+
+ensure_forward() {
+  local p="$1" cip="$2" pidfile="$state_dir/fwd-$1.pid"
+  relay_alive "$pidfile" && return 0
+  command -v socat >/dev/null || die "socat is not installed in the container"
+  mkdir -p "$state_dir"
+  nohup setsid socat "TCP-LISTEN:$p,bind=$cip,reuseaddr,fork" "TCP:127.0.0.1:$p" \
+    >>"$state_dir/forward.log" 2>&1 </dev/null &
+  echo $! >"$pidfile"
+  sleep 0.3
+  relay_alive "$pidfile" || die "could not forward $cip:$p (see $state_dir/forward.log)"
+  echo "hostchrome: forwarding $cip:$p -> container 127.0.0.1:$p" >&2
+}
+
+reach_url() {
+  local url="$1" re='^([hH][tT][tT][pP][sS]?)://(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])(:([0-9]+))?(.*)$'
+  [[ "$url" =~ $re ]] || { printf '%s\n' "$url"; return; }
+  local scheme="${BASH_REMATCH[1]}" p="${BASH_REMATCH[4]}" rest="${BASH_REMATCH[5]}" cip
+  if [[ -z "$p" ]]; then
+    if [[ "$scheme" =~ ^[hH][tT][tT][pP][sS]$ ]]; then p=443; else p=80; fi  # no ${,,}: macOS bash 3.2
+  fi
+  if published_on_host "$p"; then printf '%s\n' "$url"; return; fi
+  cip="$(container_ip)"
+  listens_wide "$p" "$cip" || ensure_forward "$p" "$cip"
+  printf '%s://%s:%s%s\n' "$scheme" "$cip" "$p" "$rest"
+}
+
+container_open() {
+  [[ $# -eq 1 ]] || die "usage: hostchrome open <url>"
+  container_status >/dev/null || die "the agent Chrome is not reachable — run 'hostchrome' on the host first"
+  local u ip id
+  u="$(reach_url "$1")"
+  ip="$(host_ip)"
+  id="$(curl -fsS -m 5 -X PUT "http://$ip:$port/json/new?$u" | sed -nE 's/.*"id": *"([^"]+)".*/\1/p' | head -1)" ||
+    die "could not open $u in the agent Chrome"
+  [[ -n "$id" ]] && curl -fsS -m 3 "http://$ip:$port/json/activate/$id" >/dev/null 2>&1 || true
+  echo "hostchrome: opened $u in the agent Chrome"
+}
+
+container_unforward() {
+  local f n
+  for f in "$state_dir"/fwd-*.pid; do
+    [[ -e "$f" ]] || continue
+    if relay_alive "$f"; then kill "$(cat "$f")" && { n="${f##*/fwd-}"; echo "hostchrome: forward ${n%.pid} stopped"; }; fi
+    rm -f "$f"
+  done
+}
+
+# $BROWSER entry point. ~/.local/bin/roe-browser-open is a symlink to this script and
+# shadows the shared /usr/local/bin/roe-browser-open, so every tool that "opens a
+# browser" (lavish, impeccable, gh --web, …) lands in the host Chrome instead of a
+# Herdr pane.
+browser_open() {
+  local url="${1:-}" real="${HOSTCHROME_REAL_BROWSER_OPEN:-/usr/local/bin/roe-browser-open}"
+  [[ -x "$real" ]] || die "$real is missing"
+  # Sandboxed/unattended agents keep the shared behaviour (they normally carry their own $BROWSER).
+  if [[ -n "${FM_TASK_ID:-}${NONO_CAP_FILE:-}" ]]; then exec "$real" "$@"; fi
+  fallback() {
+    echo "hostchrome: $1 — using the in-container browser without a Herdr pane (host viewer bookmark)" >&2
+    exec env -u HERDR_WORKSPACE_ID -u HERDR_PANE_ID "$real" "$url"
+  }
+  # A CLI login whose callback is the container's loopback must finish in here:
+  # the redirect is signed, so it cannot be rewritten to the container IP.
+  if printf '%s' "$url" | grep -qiE 'redirect_uri=https?(%3A|:)(%2F|/){2}(localhost|127\.0\.0\.1|\[::1\]|%5B%3A%3A1%5D)'; then
+    fallback "login callback targets the container"
+  fi
+  container_status >/dev/null 2>&1 || fallback "host Chrome not reachable (run 'hostchrome' on the host)"
+  container_open "$url"
+}
+
 container_axi() {
   command -v chrome-devtools-axi >/dev/null || die "chrome-devtools-axi is not on PATH"
   container_status >/dev/null || die "the agent Chrome is not reachable — run 'hostchrome' on the host first"
+  if [[ "${1:-}" == open || "${1:-}" == newpage ]] && [[ -n "${2:-}" ]]; then
+    set -- "$1" "$(reach_url "$2")" "${@:3}"
+  fi
   CHROME_DEVTOOLS_AXI_SESSION="${CHROME_DEVTOOLS_AXI_SESSION:-host}" \
   CHROME_DEVTOOLS_AXI_BROWSER_URL="$(cdp_url)" \
     exec chrome-devtools-axi "$@"
 }
 
 # --- dispatch ----------------------------------------------------------------
+if [[ "$(basename "$0")" == roe-browser-open ]]; then browser_open "$@"; exit; fi
+
 cmd="${1:-}"
 if [[ $# -gt 0 ]]; then shift; fi
 
@@ -257,8 +364,10 @@ case "$(side)" in
     case "$cmd" in
       ""|status) container_status ;;
       url)       cdp_url ;;
+      open)      container_open "$@" ;;
       axi)       container_axi "$@" ;;
-      *)         die "in the container: hostchrome status | url | axi <chrome-devtools-axi args>" ;;
+      stop)      container_unforward ;;
+      *)         die "in the container: hostchrome status | url | open <url> | axi <chrome-devtools-axi args> | stop" ;;
     esac ;;
   *) die "HOSTCHROME_SIDE must be mac, linux or container" ;;
 esac
