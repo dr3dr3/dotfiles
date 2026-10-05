@@ -23,7 +23,11 @@ SETTINGS = Path(os.environ.get('XDG_CONFIG_HOME', str(Path.home() / '.config')))
 # service lifecycle, shared dependencies, stateful validation). Only -status was
 # listed, so `make port-forward` was refused while its own status target was
 # allowed — and agent-browser/Playwright cannot reach anything without it.
-READ = set('help help-all doctor usage-show usage-flush git-status git-branches pr-status pr-merged worktree-status autoload-check wt-config test-tooling lint-workflows check-env-duplicates check-sns-endpoints codegraph-status codegraph-query codegraph-path codegraph-affected codegraph-explain release-status staging-drift logs logs-api logs-sso logs-pms logs-production-core logs-frontend port-forward port-forward-stop port-forward-status aws-status break-glass-status review-rules-check review-rules-sync'.split())
+# codegraph-refresh / codegraph-auto download a prebuilt graph bundle into
+# .codegraph/ and touch nothing else — the same class as codegraph-status,
+# which was listed while the one target that fixes a stale graph was not
+# (refused 2026-09-17 with the generic reservation message).
+READ = set('help help-all doctor usage-show usage-flush git-status git-branches pr-status pr-merged worktree-status autoload-check wt-config test-tooling lint-workflows check-env-duplicates check-sns-endpoints codegraph-status codegraph-refresh codegraph-auto codegraph-query codegraph-path codegraph-affected codegraph-explain release-status staging-drift logs logs-api logs-sso logs-pms logs-production-core logs-frontend port-forward port-forward-stop port-forward-status aws-status break-glass-status review-rules-check review-rules-sync'.split())
 
 
 def fail(message):
