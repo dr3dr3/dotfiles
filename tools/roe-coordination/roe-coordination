@@ -27,7 +27,12 @@ SETTINGS = Path(os.environ.get('XDG_CONFIG_HOME', str(Path.home() / '.config')))
 # .codegraph/ and touch nothing else — the same class as codegraph-status,
 # which was listed while the one target that fixes a stale graph was not
 # (refused 2026-09-17 with the generic reservation message).
-READ = set('help help-all doctor usage-show usage-flush git-status git-branches pr-status pr-merged worktree-status autoload-check wt-config test-tooling lint-workflows check-env-duplicates check-sns-endpoints codegraph-status codegraph-refresh codegraph-auto codegraph-query codegraph-path codegraph-affected codegraph-explain release-status staging-drift logs logs-api logs-sso logs-pms logs-production-core logs-frontend port-forward port-forward-stop port-forward-status aws-status break-glass-status review-rules-check review-rules-sync'.split())
+# second-review: reads a PR from GitHub, runs a model through pi, and may post
+# one comment and one check run to GitHub. It touches no stack, container or
+# database, and at AI-authoring volume (~25 PRs a day) a reservation per review
+# would either serialise reviews behind real runtime work or train people to
+# skip them (adversarial-review stack review, 2026-10-07).
+READ = set('help help-all doctor usage-show usage-flush git-status git-branches pr-status pr-merged worktree-status autoload-check wt-config test-tooling lint-workflows check-env-duplicates check-sns-endpoints codegraph-status codegraph-refresh codegraph-auto codegraph-query codegraph-path codegraph-affected codegraph-explain release-status staging-drift logs logs-api logs-sso logs-pms logs-production-core logs-frontend port-forward port-forward-stop port-forward-status aws-status break-glass-status review-rules-check review-rules-sync second-review'.split())
 
 
 def fail(message):
