@@ -11,7 +11,8 @@ The same tracked terminal configuration supports four environments:
 - **Windows 11** — native Herdr setup through PowerShell.
 
 Herdr setup and its Omarchy-compatible keymap are documented in
-[`docs/HERDR.md`](docs/HERDR.md). Local voice dictation into those terminals —
+[`docs/HERDR.md`](docs/HERDR.md); how workspaces, tabs and panes are named and
+laid out is in [`docs/herdr-conventions.md`](docs/herdr-conventions.md). Local voice dictation into those terminals —
 host-native, on-device, no cloud — is in [`docs/HANDY.md`](docs/HANDY.md).
 Running a local model and handing overnight work to the Pi harness is in
 [`docs/LOCAL-AI.md`](docs/LOCAL-AI.md).
