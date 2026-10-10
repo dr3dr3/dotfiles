@@ -98,12 +98,16 @@ link_restore_tooling() {
   echo "✓ Herdr restore tooling on PATH: herdr-snapshot, herdr-replay, herdr-after-restore, herdr-autosnap, herdr-session-guard"
 }
 
-# herdr-lint checks the live layout against docs/herdr-conventions.md. It is
-# TypeScript run by Node's built-in type stripping, so it needs Node >= 22.18.
+# herdr-lint checks the live layout against docs/herdr-conventions.md;
+# herdr-send messages another pane only when its input box is empty. Both are
+# TypeScript run by Node's built-in type stripping, so they need Node >= 22.18.
 link_layout_tooling() {
   mkdir -p "$HOME/.local/bin"
-  ln -sfn "$REPO_DIR/scripts/herdr/herdr-lint" "$HOME/.local/bin/herdr-lint"
-  echo "✓ Herdr layout lint on PATH: herdr-lint"
+  local tool
+  for tool in herdr-lint herdr-send; do
+    ln -sfn "$REPO_DIR/scripts/herdr/$tool" "$HOME/.local/bin/$tool"
+  done
+  echo "✓ Herdr layout tooling on PATH: herdr-lint, herdr-send"
 }
 
 install_herdr
