@@ -16,9 +16,11 @@
 //
 // Exit codes: 0 sent, 1 usage or herdr error, 2 refused.
 //
-// Recognises Claude Code's input box (a `❯` line directly under a `───` rule).
-// Other harnesses are refused as "no input box" until a capture of theirs is
-// added to the tests — failing closed is the point.
+// Recognises Claude Code's input box (a `❯` line directly under a `───` rule)
+// and, when the foreground process is a shell, a shell prompt on the last line
+// (Starship `➜`/`❯`, plain `$`). Other harnesses are refused as "no input box"
+// until a capture of theirs is added to the tests — failing closed is the point.
+// A pane labelled `you·…` (André's, e.g. `term`) is only ever staged into.
 //
 // There is still a window between the read and the send in which someone could
 // start typing. It is a few milliseconds, not the open-ended window of a blind
@@ -44,8 +46,15 @@ function visibleText(line: string): string {
     if (m[2] !== undefined) {
       if (!dim) out += m[2];
     } else if (m[1] !== undefined) {
-      for (const p of (m[1] || "0").split(";")) {
-        if (p === "2") dim = true;
+      // Walk the parameters properly: 38/48/58 introduce a colour whose own
+      // arguments (5;n or 2;r;g;b) contain 2s that are NOT the dim attribute.
+      // Treating them as dim once hid green and truecolour text entirely.
+      const ps = (m[1] || "0").split(";");
+      for (let k = 0; k < ps.length; k++) {
+        const p = ps[k];
+        if (p === "38" || p === "48" || p === "58") {
+          k += ps[k + 1] === "5" ? 2 : ps[k + 1] === "2" ? 4 : 0;
+        } else if (p === "2") dim = true;
         else if (p === "0" || p === "" || p === "22") dim = false;
       }
     }
@@ -55,7 +64,27 @@ function visibleText(line: string): string {
 
 const plain = (line: string) => line.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, "");
 
-export function inputState(screen: string): InputState {
+// A shell prompt: the last non-blank line starts with a prompt symbol (Starship
+// `➜`/`❯`, plain `$`/`#`/`%`/`>`), optionally after one host/path-like token
+// with no spaces, such as `user@host:~$`. Whatever follows the symbol, minus dim text, is the
+// command line. A fish autosuggestion only appears after a typed prefix, so it
+// never makes a typed line look empty. Anything else is "none" — fail closed.
+const SHELL_PROMPT = /^\s*(?:\S*[@:~/]\S*?)?[➜❯$#%>](?=\s|$)/u;
+
+function shellInputState(screen: string): InputState {
+  const lines = screen.split("\n").map((l) => l.replace(/\r$/, ""));
+  let i = lines.length - 1;
+  while (i >= 0 && !plain(lines[i]).trim()) i--;
+  if (i < 0) return { state: "none", text: "" };
+  const visible = visibleText(lines[i]);
+  const match = visible.match(SHELL_PROMPT);
+  if (!match) return { state: "none", text: "" };
+  const text = visible.slice(match[0].length).trim();
+  return { state: text ? "typed" : "empty", text };
+}
+
+export function inputState(screen: string, kind: "agent" | "shell" = "agent"): InputState {
+  if (kind === "shell") return shellInputState(screen);
   const lines = screen.split("\n").map((l) => l.replace(/\r$/, ""));
   // The input box is the LAST column-0 prompt that sits directly under a rule.
   // History prompts are not under a rule; a permission dialog's `❯` is indented.
@@ -122,12 +151,16 @@ function main(argv: string[]): number {
     const target = herdr(["pane", "get", pane]).pane;
     if (target.agent_status === "blocked") throw new Refused(`${pane} is blocked on a question or approval`);
 
-    const input = inputState(herdr(["pane", "read", pane, "--source", "visible", "--format", "ansi", "--lines", "60"]));
-    if (input.state === "none") throw new Refused(`${pane} shows no input box herdr-send recognises`);
-    if (input.state === "typed") throw new Refused(`${pane}'s input box is not empty: "${input.text.slice(0, 60)}"`);
-
     const fg = herdr(["pane", "process-info", "--pane", pane]).process_info.foreground_processes?.[0]?.name ?? "";
     const isShell = SHELLS.has(fg);
+    // André's own panes (`you·…`, e.g. the `term` tab) never get an Enter from
+    // an agent, whatever is running in them.
+    const stageOnly = isShell || String(target.label ?? "").startsWith("you·");
+
+    const screen = herdr(["pane", "read", pane, "--source", "visible", "--format", "ansi", "--lines", "60"]);
+    const input = inputState(screen, isShell ? "shell" : "agent");
+    if (input.state === "none") throw new Refused(`${pane} shows no input box herdr-send recognises`);
+    if (input.state === "typed") throw new Refused(`${pane}'s input box is not empty: "${input.text.slice(0, 60)}"`);
 
     let text = message;
     if (file) {
@@ -143,7 +176,7 @@ function main(argv: string[]): number {
     }
 
     herdr(["pane", "send-text", pane, text]);
-    if (isShell) {
+    if (stageOnly) {
       process.stdout.write(`staged in ${pane} (${fg}); Enter left to the owner\n`);
       return 0;
     }
@@ -164,6 +197,6 @@ function main(argv: string[]): number {
   }
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   process.exitCode = main(process.argv.slice(2));
 }

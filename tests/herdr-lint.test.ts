@@ -139,3 +139,11 @@ test("CLI exit codes: 0 clean, 1 findings, 2 could not check", () => {
   const noHerdr = spawnSync(CLI, [], { encoding: "utf8", env: { ...process.env, HERDR_BIN: "/nonexistent/herdr" } });
   assert.equal(noHerdr.status, 2);
 });
+
+test("importing the module without a script path does not throw (node -e)", () => {
+  const mod = join(here, "../scripts/herdr/herdr-lint.ts");
+  const r = spawnSync(process.execPath, ["--input-type=module", "-e", `await import(${JSON.stringify(mod)})`], {
+    encoding: "utf8",
+  });
+  assert.equal(r.status, 0, r.stderr);
+});

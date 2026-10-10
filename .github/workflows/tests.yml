@@ -118,8 +118,8 @@ jobs:
           ran="$(grep -oE '^# tests [0-9]+' /tmp/node-out.txt | grep -oE '[0-9]+' | tail -1 || true)"
           echo "ran=${ran:-0}"
           # Same guard as the Python step: an empty suite must not read as a pass.
-          if [ "${ran:-0}" -lt 23 ]; then
-            echo "::error::expected at least 23 node tests, saw ${ran:-0}"
+          if [ "${ran:-0}" -lt 31 ]; then
+            echo "::error::expected at least 31 node tests, saw ${ran:-0}"
             exit 1
           fi
           exit "$rc"
