@@ -36,8 +36,9 @@ output; `--dump` saves a snapshot that `--fixture` can lint later.
 ## Operating rules
 
 - **`term` is André's.** Each workspace has one `term` tab with a `you·shell`
-  pane. Agents may stage a command there with `herdr pane send-text` and never
-  press Enter.
+  pane. Agents may stage a command there with `herdr-send <pane> "<command>"`,
+  which refuses if he has something half-typed and never presses Enter in a
+  `you·` pane.
 - **Never type into another agent's input blindly.** Read its pane first and
   send only if the input box is empty (a dim suggestion counts as empty), or
   write the message to a file and send a one-line pointer. `herdr-send <pane>

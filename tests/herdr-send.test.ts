@@ -104,11 +104,68 @@ test("CLI sends text then Enter into an empty agent input", () => {
   assert.deepEqual(h.sends(), ["pane send-text w1:p9 hello", "pane send-keys w1:p9 enter"]);
 });
 
-test("CLI stages into a shell without pressing Enter", () => {
-  const h = fakeHerdr(fixture("empty"), { fg: "fish", label: "you·shell" });
+// Shell fixtures are real captures, trimmed to 4 lines: André's own `term` pane
+// (read only, fish + Starship `➜`), a probe pane's fish in the same states, and
+// a plain bash `$ ` prompt. The first version of this file tested shells with a
+// Claude screen and a fake `fish` process, which hid that a real shell prompt
+// was refused as "no input box" — so herdr-send could never stage into `term`.
+const shell = (name: string) => readFileSync(join(here, "fixtures/herdr-send", `shell-${name}.ansi`), "utf8");
+
+test("real shell prompts with nothing typed are empty", () => {
+  for (const name of ["fish-term-empty", "fish-empty", "fish-after-error", "bash-empty"]) {
+    assert.equal(inputState(shell(name), "shell").state, "empty", name);
+  }
+});
+
+test("real shell prompts with text are typed, including a fish autosuggestion", () => {
+  assert.equal(inputState(shell("fish-typed"), "shell").text, "echo half typed");
+  assert.equal(inputState(shell("bash-typed"), "shell").text, "ls -la");
+  // Fish only suggests after a typed prefix, so a suggestion means "not empty".
+  assert.equal(inputState(shell("fish-autosuggest"), "shell").state, "typed");
+});
+
+test("colour codes containing a 2 are not the dim attribute", () => {
+  // 38;2;r;g;b truecolour (Claude Code's own styling) and 38;5;2 green both
+  // carry a "2" parameter. Reading either as SGR 2 would make typed text vanish
+  // and a non-empty input box look empty.
+  const box = (styled: string) => `────\r\n❯ ${styled}\r\n────\r\n`;
+  assert.equal(inputState(box("\x1b[38;2;255;255;255mhalf-typed\x1b[0m")).state, "typed");
+  assert.equal(inputState(box("\x1b[38;5;2mhalf-typed\x1b[0m")).state, "typed");
+  assert.equal(inputState(box("\x1b[48;2;55;55;55mhalf-typed\x1b[0m")).state, "typed");
+  // ...while real dim text, even combined with a colour, is still a placeholder.
+  assert.equal(inputState(box("\x1b[2;38;5;7mTry something\x1b[0m")).state, "empty");
+});
+
+test("a shell screen with no recognisable prompt is 'none'", () => {
+  assert.equal(inputState("building...\r\n  42% done\r\n", "shell").state, "none");
+});
+
+test("CLI stages into a real fish term pane without pressing Enter", () => {
+  const h = fakeHerdr(shell("fish-term-empty"), { fg: "fish", label: "you·shell" });
   const r = h.run("w1:p9", "make doctor");
   assert.equal(r.status, 0, r.stderr);
   assert.deepEqual(h.sends(), ["pane send-text w1:p9 make doctor"]);
+});
+
+test("CLI refuses a shell with a half-typed command and sends nothing", () => {
+  const h = fakeHerdr(shell("fish-typed"), { fg: "fish", label: "you·shell" });
+  assert.equal(h.run("w1:p9", "make doctor").status, 2);
+  assert.deepEqual(h.sends(), []);
+});
+
+test("CLI never presses Enter in André's pane, even when an agent is running there", () => {
+  const h = fakeHerdr(fixture("empty"), { fg: "claude", label: "you·shell" });
+  const r = h.run("w1:p9", "hello");
+  assert.equal(r.status, 0, r.stderr);
+  assert.deepEqual(h.sends(), ["pane send-text w1:p9 hello"]);
+});
+
+test("importing the module without a script path does not throw (node -e)", () => {
+  const mod = join(here, "../scripts/herdr/herdr-send.ts");
+  const r = spawnSync(process.execPath, ["--input-type=module", "-e", `await import(${JSON.stringify(mod)})`], {
+    encoding: "utf8",
+  });
+  assert.equal(r.status, 0, r.stderr);
 });
 
 test("--file writes the message to a file and sends a one-line pointer", () => {
