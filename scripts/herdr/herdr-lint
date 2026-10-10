@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Thin wrapper: herdr-lint is TypeScript, run by Node's built-in type stripping
+# (Node >= 22.18). See herdr-lint.ts.
+set -euo pipefail
+exec node "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/herdr-lint.ts" "$@"

@@ -26,6 +26,13 @@ Label every pane you create: `herdr pane rename <pane_id> <role>·<harness>`.
   warning; more than 4 is an error. Need more? Open a tab.
 - **At most 9 tabs per workspace**, so `Alt+1..9` reaches every one.
 
+## Checking
+
+`herdr-lint` (linked onto `PATH` by `scripts/setup-herdr.sh`) reports every
+breach of the rules above in the live session. It is read-only. Exit 0 means
+clean, 1 means findings, 2 means it could not check. `--json` gives machine
+output; `--dump` saves a snapshot that `--fixture` can lint later.
+
 ## Operating rules
 
 - **`term` is André's.** Each workspace has one `term` tab with a `you·shell`

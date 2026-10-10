@@ -99,3 +99,27 @@ jobs:
             exit 1
           fi
           exit "$rc"
+
+      # The TypeScript tools (herdr-lint) run on Node's built-in type stripping,
+      # which is on by default from 22.18 — so no npm install and no compiler.
+      # Pinned to the 22 line, the same as the devcontainer.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Run tests/*.test.ts
+        run: |
+          set -uo pipefail
+          node --version
+          # Name the files: `node --test tests/` treats the directory as a module
+          # and runs nothing useful.
+          node --test tests/*.test.ts 2>&1 | tee /tmp/node-out.txt
+          rc=${PIPESTATUS[0]}
+          ran="$(grep -oE '^# tests [0-9]+' /tmp/node-out.txt | grep -oE '[0-9]+' | tail -1 || true)"
+          echo "ran=${ran:-0}"
+          # Same guard as the Python step: an empty suite must not read as a pass.
+          if [ "${ran:-0}" -lt 9 ]; then
+            echo "::error::expected at least 9 node tests, saw ${ran:-0}"
+            exit 1
+          fi
+          exit "$rc"

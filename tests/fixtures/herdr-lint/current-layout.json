@@ -1,0 +1,215 @@
+{
+  "captured": "2026-10-10 (two tab labels neutralised for a public repo; same lengths class)",
+  "workspaces": [
+    {
+      "workspace_id": "w9",
+      "label": "daily"
+    },
+    {
+      "workspace_id": "w1",
+      "label": "infrastructure"
+    }
+  ],
+  "tabs": [
+    {
+      "tab_id": "w9:t1E",
+      "workspace_id": "w9",
+      "label": "design"
+    },
+    {
+      "tab_id": "w9:t1C",
+      "workspace_id": "w9",
+      "label": "personalize"
+    },
+    {
+      "tab_id": "w9:t1J",
+      "workspace_id": "w9",
+      "label": "cleanup"
+    },
+    {
+      "tab_id": "w9:t1M",
+      "workspace_id": "w9",
+      "label": "timesheet"
+    },
+    {
+      "tab_id": "w9:t1K",
+      "workspace_id": "w9",
+      "label": "terminal"
+    },
+    {
+      "tab_id": "w9:t1N",
+      "workspace_id": "w9",
+      "label": "ENG-1234 ticket"
+    },
+    {
+      "tab_id": "w9:t1P",
+      "workspace_id": "w9",
+      "label": "pairing"
+    },
+    {
+      "tab_id": "w9:t1Q",
+      "workspace_id": "w9",
+      "label": "daily"
+    },
+    {
+      "tab_id": "w1:t1A",
+      "workspace_id": "w1",
+      "label": "terminal"
+    },
+    {
+      "tab_id": "w1:t1E",
+      "workspace_id": "w1",
+      "label": "ai-setup-thinking"
+    },
+    {
+      "tab_id": "w1:t1F",
+      "workspace_id": "w1",
+      "label": "init-ai-setup"
+    },
+    {
+      "tab_id": "w1:t1G",
+      "workspace_id": "w1",
+      "label": "preflight-rereview"
+    },
+    {
+      "tab_id": "w1:t1H",
+      "workspace_id": "w1",
+      "label": "adversarial-review"
+    },
+    {
+      "tab_id": "w1:t1K",
+      "workspace_id": "w1",
+      "label": "herdr"
+    }
+  ],
+  "panes": [
+    {
+      "pane_id": "w9:p20",
+      "tab_id": "w9:t1E",
+      "workspace_id": "w9",
+      "label": null
+    },
+    {
+      "pane_id": "w9:p3H",
+      "tab_id": "w9:t1C",
+      "workspace_id": "w9",
+      "label": null
+    },
+    {
+      "pane_id": "w9:p35",
+      "tab_id": "w9:t1J",
+      "workspace_id": "w9",
+      "label": null
+    },
+    {
+      "pane_id": "w9:p38",
+      "tab_id": "w9:t1M",
+      "workspace_id": "w9",
+      "label": null
+    },
+    {
+      "pane_id": "w9:p36",
+      "tab_id": "w9:t1K",
+      "workspace_id": "w9",
+      "label": null
+    },
+    {
+      "pane_id": "w9:p39",
+      "tab_id": "w9:t1N",
+      "workspace_id": "w9",
+      "label": null
+    },
+    {
+      "pane_id": "w9:p3C",
+      "tab_id": "w9:t1P",
+      "workspace_id": "w9",
+      "label": null
+    },
+    {
+      "pane_id": "w9:p3K",
+      "tab_id": "w9:t1Q",
+      "workspace_id": "w9",
+      "label": null
+    },
+    {
+      "pane_id": "w1:p2E",
+      "tab_id": "w1:t1A",
+      "workspace_id": "w1",
+      "label": null
+    },
+    {
+      "pane_id": "w1:p2J",
+      "tab_id": "w1:t1E",
+      "workspace_id": "w1",
+      "label": null
+    },
+    {
+      "pane_id": "w1:p2K",
+      "tab_id": "w1:t1F",
+      "workspace_id": "w1",
+      "label": null
+    },
+    {
+      "pane_id": "w1:p2M",
+      "tab_id": "w1:t1G",
+      "workspace_id": "w1",
+      "label": null
+    },
+    {
+      "pane_id": "w1:p2N",
+      "tab_id": "w1:t1H",
+      "workspace_id": "w1",
+      "label": "rev·claude"
+    },
+    {
+      "pane_id": "w1:p2T",
+      "tab_id": "w1:t1K",
+      "workspace_id": "w1",
+      "label": "herdr·claude"
+    }
+  ],
+  "layouts": {
+    "w9:t1E": {
+      "splits": []
+    },
+    "w9:t1C": {
+      "splits": []
+    },
+    "w9:t1J": {
+      "splits": []
+    },
+    "w9:t1M": {
+      "splits": []
+    },
+    "w9:t1K": {
+      "splits": []
+    },
+    "w9:t1N": {
+      "splits": []
+    },
+    "w9:t1P": {
+      "splits": []
+    },
+    "w9:t1Q": {
+      "splits": []
+    },
+    "w1:t1A": {
+      "splits": []
+    },
+    "w1:t1E": {
+      "splits": []
+    },
+    "w1:t1F": {
+      "splits": []
+    },
+    "w1:t1G": {
+      "splits": []
+    },
+    "w1:t1H": {
+      "splits": []
+    },
+    "w1:t1K": {
+      "splits": []
+    }
+  }
+}
