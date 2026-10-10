@@ -40,7 +40,9 @@ output; `--dump` saves a snapshot that `--fixture` can lint later.
   press Enter.
 - **Never type into another agent's input blindly.** Read its pane first and
   send only if the input box is empty (a dim suggestion counts as empty), or
-  write the message to a file and send a one-line pointer. A blind send on
+  write the message to a file and send a one-line pointer. `herdr-send <pane>
+  <message>` does the read for you and refuses (exit 2) if the box is not empty; add
+  `--file` for anything longer than a line. A blind send on
   2026-10-07 landed mid-way through a recalled command and garbled it.
 - **Close what you open** when finished. Never close a pane, tab or workspace
   you did not create without André's approval.

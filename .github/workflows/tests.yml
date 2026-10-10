@@ -100,7 +100,7 @@ jobs:
           fi
           exit "$rc"
 
-      # The TypeScript tools (herdr-lint) run on Node's built-in type stripping,
+      # The TypeScript tools (herdr-lint, herdr-send) run on Node's built-in type stripping,
       # which is on by default from 22.18 — so no npm install and no compiler.
       # Pinned to the 22 line, the same as the devcontainer.
       - uses: actions/setup-node@v4
@@ -118,8 +118,8 @@ jobs:
           ran="$(grep -oE '^# tests [0-9]+' /tmp/node-out.txt | grep -oE '[0-9]+' | tail -1 || true)"
           echo "ran=${ran:-0}"
           # Same guard as the Python step: an empty suite must not read as a pass.
-          if [ "${ran:-0}" -lt 9 ]; then
-            echo "::error::expected at least 9 node tests, saw ${ran:-0}"
+          if [ "${ran:-0}" -lt 23 ]; then
+            echo "::error::expected at least 23 node tests, saw ${ran:-0}"
             exit 1
           fi
           exit "$rc"
