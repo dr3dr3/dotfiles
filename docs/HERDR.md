@@ -11,6 +11,9 @@ devcontainers:
 - Reload: prefix, then `q`
 - Detach: prefix, then `d`
 
+Naming and layout rules for workspaces, tabs and panes are in
+[`herdr-conventions.md`](herdr-conventions.md).
+
 Herdr accepts one prefix value, not a list. Caps Lock is therefore translated
 to `Ctrl+Alt+Space` by the host keyboard layer. The normal `Ctrl+Alt+Space`
 chord always remains available.
